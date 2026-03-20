@@ -39,7 +39,7 @@ export const getAnalytics = async (req, res) => {
       },
 
       { $unwind: "$user" },
-
+{ $match: { "task.estimatedTime": { $exists: true, $ne: null } } },
       // Group by user + date
       {
         $group: {

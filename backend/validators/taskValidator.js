@@ -36,5 +36,8 @@ export const updateTaskSchema = z.object({
     message: "Invalid date format"
   }).optional(),
   estimatedTime: z.number().min(1).optional(),
-  status: z.enum(["Not Started", "In Progress", "Completed", "Overdue"]).optional()
+  status: z.enum(["Not Started", "In Progress", "Completed", "Overdue"]).optional(),
+  scheduledDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+  message: "Invalid date format"
+}).optional(),
 });

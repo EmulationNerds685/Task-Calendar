@@ -24,17 +24,7 @@ app.use("/api/tasks",     taskRoutes);
 app.use("/api/calendar",  calendarRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
-app.get("/api/test-cron", async (req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const result = await Task.updateMany(
-    { dueDate: { $lt: today }, status: { $nin: ["Completed", "Overdue"] } },
-    { $set: { status: "Overdue" } }
-  );
-
-  res.json({ message: `Marked ${result.modifiedCount} tasks as Overdue` });
-});
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {

@@ -9,7 +9,7 @@ const router = express.Router();
 router.post("/register", validate(registerSchema), register);
 router.post("/login", validate(loginSchema), login);
 router.get("/me", verifyToken, getMe);
-router.get("/users", verifyToken, checkRole("admin"), async (req, res) => {
+router.get("/users", verifyToken,async (req, res) => {
   try {
     const users = await User.find().select("name email role");
     res.status(200).json(users);

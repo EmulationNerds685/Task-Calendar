@@ -106,9 +106,6 @@ export const getTaskById = async (req, res) => {
   }
 };
 
-/*
- Update Task
-*/
 export const updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -118,28 +115,42 @@ export const updateTask = async (req, res) => {
     }
 
     // MEMBER: can only update status on their own task
-    if (req.user.role === "member") {
-      if (task.assignedTo.toString() !== req.user.id) {
-        return res.status(403).json({ message: "Not allowed to update this task" });
-      }
+if (req.user.role === "member") {
+  if (task.assignedTo.toString() !== req.user.id) {
+    return res.status(403).json({ message: "Not allowed to update this task" });
+  }
 
-      task.status = req.body.status || task.status;
+  // Members can update status, description, and estimated time on their own tasks
+  const allowedFields = ["status", "description", "estimatedTime"];
+  allowedFields.forEach(field => {
+    if (req.body[field] !== undefined) task[field] = req.body[field];
+  });
 
-      await task.save();
-      return res.status(200).json(task);
-    }
+  await task.save();
+  return res.status(200).json(task);
+}
 
-    // ADMIN: can update any field
-    Object.assign(task, req.body);
+ // ADMIN: can update any field
+Object.assign(task, req.body);
+await task.save();
 
-    await task.save();
+const rescheduleTriggers = ["priority", "dueDate"];
+const needsReschedule = rescheduleTriggers.some(f => req.body[f] !== undefined);
+if (needsReschedule) {
+  try {
+    await autoSchedule(task);
+  } catch (scheduleErr) {
+    console.error("Reschedule failed:", scheduleErr.message);
+    // task was saved successfully, don't fail the whole request
+  }
+}
 
-    res.status(200).json(task);
+res.status(200).json(task);
+  
   } catch (error) {
     res.status(500).json({ message: "Failed to update task", error: error.message });
   }
 };
-
 /*
  Delete Task (Admin only)
 */
