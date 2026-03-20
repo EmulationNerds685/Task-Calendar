@@ -14,6 +14,38 @@ const EMPTY_FORM = {
   status: "Not Started",
 };
 
+const PRIORITIES = [
+  { val: "High",   dot: "#ef4444", bg: "rgba(254,242,242,0.7)", activeBorder: "rgba(252,165,165,0.6)", activeText: "#ef4444" },
+  { val: "Medium", dot: "#f59e0b", bg: "rgba(255,251,235,0.7)", activeBorder: "rgba(253,211,77,0.6)",  activeText: "#f59e0b" },
+  { val: "Low",    dot: "#10b981", bg: "rgba(236,253,245,0.7)", activeBorder: "rgba(110,231,183,0.6)", activeText: "#10b981" },
+];
+
+const CATEGORIES = ["Research", "Admin", "Investment Analysis", "Compliance", "Operations"];
+const STATUSES = ["Not Started", "In Progress", "Completed", "Overdue"];
+
+const statusColors = {
+  "Not Started": { bg: "#f1f5f9", text: "#64748b", activeBorder: "#94a3b8" },
+  "In Progress":  { bg: "rgba(238,242,255,0.8)", text: "#6366f1", activeBorder: "#818cf8" },
+  "Completed":    { bg: "rgba(236,253,245,0.8)", text: "#10b981", activeBorder: "#34d399" },
+  "Overdue":      { bg: "rgba(254,242,242,0.8)", text: "#ef4444", activeBorder: "#f87171" },
+};
+
+const inputStyle = (disabled = false) => ({
+  width: "100%", padding: "9px 13px", fontSize: "13px", fontFamily: "inherit",
+  background: disabled ? "rgba(249,250,251,0.6)" : "#fafafa",
+  border: "1.5px solid #e5e7eb", borderRadius: "11px",
+  outline: "none", color: disabled ? "#9ca3af" : "#1f2937",
+  transition: "border-color 0.15s", boxSizing: "border-box",
+  cursor: disabled ? "not-allowed" : "text"
+});
+
+const Label = ({ children, required }) => (
+  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>
+    {children}
+    {required && <span style={{ color: "#f87171", marginLeft: "3px" }}>*</span>}
+  </label>
+);
+
 export default function TaskFormModal({ task, onClose, onSaved }) {
   const { user } = useAuth();
   const { users } = useUsers();
@@ -39,7 +71,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
     }
   }, [task]);
 
-  const handle = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const handle = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,13 +82,11 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         ...form,
         estimatedTime: form.estimatedTime ? Number(form.estimatedTime) : undefined,
       };
-
       if (isEdit) {
         await api.patch(`/tasks/${task._id}`, payload);
       } else {
         await api.post("/tasks", payload);
       }
-
       onSaved();
       onClose();
     } catch (err) {
@@ -72,181 +102,285 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+      style={{
+        position: "fixed", inset: 0, background: "rgba(79,50,130,0.18)",
+        backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
+        justifyContent: "center", zIndex: 50, padding: "16px"
+      }}
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-lg shadow-lg max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "rgba(255,255,255,0.97)", backdropFilter: "blur(20px)",
+          borderRadius: "22px", width: "100%", maxWidth: "500px",
+          border: "1px solid rgba(196,181,253,0.25)",
+          boxShadow: "0 24px 64px rgba(109,40,217,0.12), 0 0 0 1px rgba(255,255,255,0.8)",
+          maxHeight: "90vh", overflowY: "auto"
+        }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
-            {isEdit ? "Edit task" : "Create task"}
-          </h2>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "20px 24px 16px",
+          borderBottom: "1px solid rgba(196,181,253,0.15)",
+          background: "linear-gradient(135deg, rgba(250,245,255,0.8), rgba(238,242,255,0.4))",
+          position: "sticky", top: 0, zIndex: 1, borderRadius: "22px 22px 0 0"
+        }}>
+          <div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
+              {isEdit ? "Edit task" : "Create new task"}
+            </h2>
+            <p style={{ fontSize: "12px", color: "#a78bfa", margin: "2px 0 0" }}>
+              {isAdmin ? "Admin — full access" : "Update task "}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            style={{
+              width: "28px", height: "28px", borderRadius: "8px",
+              background: "rgba(196,181,253,0.15)", border: "1px solid rgba(196,181,253,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#a78bfa", fontSize: "16px"
+            }}
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+        <form onSubmit={handleSubmit} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px" }}>
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+            <div style={{
+              padding: "11px 14px", background: "rgba(254,242,242,0.8)",
+              border: "1px solid rgba(252,165,165,0.4)", borderRadius: "11px",
+              fontSize: "13px", color: "#be123c"
+            }}>
               {error}
             </div>
           )}
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title <span className="text-red-500">*</span>
-            </label>
+            <Label required>Title</Label>
             <input
               type="text"
               required
               disabled={!isAdmin}
               value={form.title}
-              onChange={(e) => handle("title", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              onChange={e => handle("title", e.target.value)}
               placeholder="Task title"
+              style={inputStyle(!isAdmin)}
+              onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <Label>Description</Label>
             <textarea
-              disabled={!isAdmin}
+              disabled={false}
               value={form.description}
-              onChange={(e) => handle("description", e.target.value)}
+              onChange={e => handle("description", e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 resize-none"
-              placeholder="Optional description"
+              placeholder="Optional description…"
+              style={{ ...inputStyle(!isAdmin), resize: "none", lineHeight: 1.6 }}
+              onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
           </div>
 
-          {/* Assigned To — admin only */}
+          {/* Assigned to — admin only */}
           {isAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assigned to <span className="text-red-500">*</span>
-              </label>
-              <select
-                required
-                value={form.assignedTo}
-                onChange={(e) => handle("assignedTo", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">Select a member</option>
-                {users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name} ({u.role})
-                  </option>
-                ))}
-              </select>
+              <Label required>Assigned to</Label>
+              <div style={{ position: "relative" }}>
+                <select
+                  required
+                  value={form.assignedTo}
+                  onChange={e => handle("assignedTo", e.target.value)}
+                  style={{ ...inputStyle(false), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
+                  onFocus={e => e.target.style.borderColor = "#c084fc"}
+                  onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+                >
+                  <option value="">Select a team member</option>
+                  {users.map(u => (
+                    <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                  ))}
+                </select>
+                <svg style={{ position: "absolute", right: "11px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="#a78bfa" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
             </div>
           )}
 
-          {/* Priority + Category */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select
-                disabled={!isAdmin}
-                value={form.priority}
-                onChange={(e) => handle("priority", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-50"
-              >
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select
-                disabled={!isAdmin}
-                value={form.category}
-                onChange={(e) => handle("category", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-50"
-              >
-                <option value="">None</option>
-                <option>Research</option>
-                <option>Admin</option>
-                <option>Investment Analysis</option>
-                <option>Compliance</option>
-                <option>Operations</option>
-              </select>
+          {/* Priority picker */}
+          <div>
+            <Label>Priority</Label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {PRIORITIES.map(({ val, dot, bg, activeBorder, activeText }) => {
+                const isActive = form.priority === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    disabled={!isAdmin}
+                    onClick={() => handle("priority", val)}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: "10px",
+                      background: isActive ? bg : "rgba(249,250,251,0.6)",
+                      border: isActive ? `1.5px solid ${activeBorder}` : "1.5px solid #e5e7eb",
+                      cursor: isAdmin ? "pointer" : "not-allowed",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                      fontSize: "12px", fontWeight: isActive ? 600 : 400,
+                      color: isActive ? activeText : "#9ca3af",
+                      transition: "all 0.15s", opacity: !isAdmin ? 0.5 : 1
+                    }}
+                  >
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: dot, display: "inline-block", flexShrink: 0 }} />
+                    {val}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Due Date + Estimated Time */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Category */}
+          <div>
+            <Label>Category</Label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              <button
+                type="button"
+                disabled={!isAdmin}
+                onClick={() => handle("category", "")}
+                style={{
+                  padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
+                  border: !form.category ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
+                  background: !form.category ? "rgba(233,213,255,0.4)" : "transparent",
+                  color: !form.category ? "#7c3aed" : "#9ca3af",
+                  cursor: isAdmin ? "pointer" : "not-allowed", fontWeight: !form.category ? 600 : 400,
+                  opacity: !isAdmin ? 0.5 : 1, transition: "all 0.15s"
+                }}
+              >
+                None
+              </button>
+              {CATEGORIES.map(cat => {
+                const isActive = form.category === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    disabled={!isAdmin}
+                    onClick={() => handle("category", cat)}
+                    style={{
+                      padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
+                      border: isActive ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
+                      background: isActive ? "rgba(233,213,255,0.4)" : "transparent",
+                      color: isActive ? "#7c3aed" : "#9ca3af",
+                      cursor: isAdmin ? "pointer" : "not-allowed", fontWeight: isActive ? 600 : 400,
+                      opacity: !isAdmin ? 0.5 : 1, transition: "all 0.15s"
+                    }}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Due date + Estimated time */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due date <span className="text-red-500">*</span>
-              </label>
+              <Label required>Due date</Label>
               <input
                 type="date"
                 required
                 disabled={!isAdmin}
                 value={form.dueDate}
-                onChange={(e) => handle("dueDate", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                onChange={e => handle("dueDate", e.target.value)}
+                style={inputStyle(!isAdmin)}
+                onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+                onBlur={e => e.target.style.borderColor = "#e5e7eb"}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estimated time (min)
-              </label>
+              <Label>Est. time (min)</Label>
               <input
                 type="number"
                 min={1}
-                disabled={!isAdmin}
+                disabled={false}
                 value={form.estimatedTime}
-                onChange={(e) => handle("estimatedTime", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                onChange={e => handle("estimatedTime", e.target.value)}
                 placeholder="e.g. 90"
+                style={inputStyle(!isAdmin)}
+                onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+                onBlur={e => e.target.style.borderColor = "#e5e7eb"}
               />
             </div>
           </div>
 
-          {/* Status — always editable */}
+          {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => handle("status", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option>Not Started</option>
-              <option>In Progress</option>
-              <option>Completed</option>
-              <option>Overdue</option>
-            </select>
+            <Label>Status</Label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "6px" }}>
+              {STATUSES.map(s => {
+                const sc = statusColors[s];
+                const isActive = form.status === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handle("status", s)}
+                    style={{
+                      padding: "7px 4px", borderRadius: "10px", fontSize: "11px", fontWeight: isActive ? 600 : 400,
+                      background: isActive ? sc.bg : "rgba(249,250,251,0.6)",
+                      border: isActive ? `1.5px solid ${sc.activeBorder}` : "1.5px solid #e5e7eb",
+                      color: isActive ? sc.text : "#9ca3af",
+                      cursor: "pointer", transition: "all 0.15s", textAlign: "center"
+                    }}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div style={{ display: "flex", gap: "10px", paddingTop: "4px" }}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              style={{
+                flex: 1, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 500,
+                background: "transparent", border: "1px solid rgba(196,181,253,0.35)",
+                color: "#9ca3af", cursor: "pointer", transition: "all 0.15s"
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(233,213,255,0.2)"; e.currentTarget.style.color = "#7c3aed"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#9ca3af"; }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              style={{
+                flex: 2, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 600,
+                background: loading ? "#d8b4fe" : "linear-gradient(135deg,#c084fc,#818cf8)",
+                border: "none", color: "white", cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 12px rgba(139,92,246,0.25)", transition: "opacity 0.15s"
+              }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = "0.88"; }}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
             >
-              {loading ? "Saving..." : isEdit ? "Save changes" : "Create task"}
+              {loading ? "Saving…" : isEdit ? "Save changes" : "Create task"}
             </button>
           </div>
         </form>
       </div>
+
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&display=swap" rel="stylesheet" />
     </div>
   );
 }

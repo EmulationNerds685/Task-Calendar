@@ -2,169 +2,177 @@ import dayjs from "dayjs";
 import Layout from "../../components/Layout";
 import useAnalytics from "../../hooks/useAnalytics";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from "recharts";
 
 const CATEGORY_COLORS = {
-  Research: "#3b82f6",
-  Admin: "#8b5cf6",
+  Research:            "#818cf8",
+  Admin:               "#c084fc",
   "Investment Analysis": "#f59e0b",
-  Compliance: "#ef4444",
-  Operations: "#22c55e",
+  Compliance:          "#f87171",
+  Operations:          "#34d399",
+};
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)",
+      border: "1px solid rgba(196,181,253,0.3)", borderRadius: "12px",
+      padding: "10px 14px", boxShadow: "0 8px 24px rgba(139,92,246,0.1)",
+      fontSize: "12px"
+    }}>
+      {label && <p style={{ color: "#9ca3af", margin: "0 0 6px" }}>{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color || "#6d28d9", fontWeight: 600, margin: "2px 0" }}>
+          {p.name || "Minutes"}: {p.value}
+          {p.name === "value" ? " min" : " min"}
+        </p>
+      ))}
+    </div>
+  );
 };
 
 export default function AnalyticsPage() {
   const { data, loading, error } = useAnalytics();
 
-  // Build bar chart data — total minutes per user per day
-  const barData = data.map((entry) => ({
-    name: `${entry.userName} · ${dayjs(entry.date).format("MMM D")}`,
+  const barData = data.map(entry => ({
+    name: `${entry.userName.split(" ")[0]} · ${dayjs(entry.date).format("MMM D")}`,
     minutes: entry.totalMinutes,
   }));
 
-  // Build pie chart data — total minutes by category across all entries
   const categoryTotals = {};
-  data.forEach((entry) => {
+  data.forEach(entry => {
     entry.byCategory.forEach(({ category, minutes }) => {
       if (!category) return;
       categoryTotals[category] = (categoryTotals[category] || 0) + minutes;
     });
   });
-  const pieData = Object.entries(categoryTotals).map(([name, value]) => ({
-    name,
-    value,
-  }));
+  const pieData = Object.entries(categoryTotals).map(([name, value]) => ({ name, value }));
 
-  // Summary cards
   const totalMinutes = data.reduce((sum, e) => sum + e.totalMinutes, 0);
-  const uniqueUsers = [...new Set(data.map((e) => e.userName))];
-  const uniqueDays = [...new Set(data.map((e) => dayjs(e.date).format("YYYY-MM-DD")))];
+  const uniqueUsers = [...new Set(data.map(e => e.userName))];
+  const uniqueDays = [...new Set(data.map(e => dayjs(e.date).format("YYYY-MM-DD")))];
+
+  const summaryCards = [
+    { label: "Total time tracked", value: `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`, color: "#818cf8", bg: "rgba(238,242,255,0.7)", border: "rgba(196,181,253,0.3)" },
+    { label: "Team members", value: uniqueUsers.length, color: "#c084fc", bg: "rgba(250,245,255,0.7)", border: "rgba(233,213,255,0.4)" },
+    { label: "Active days", value: uniqueDays.length, color: "#34d399", bg: "rgba(236,253,245,0.7)", border: "rgba(110,231,183,0.3)" },
+  ];
 
   return (
     <Layout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div style={{ padding: "28px 32px", maxWidth: "1280px", margin: "0 auto" }}>
 
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900">Analytics</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Time tracking across team members and categories
-          </p>
+        <div style={{ marginBottom: "28px" }}>
+          <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>Workspace insights</p>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
+            Analytics ✦
+          </h1>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          <div style={{ marginBottom: "16px", padding: "12px 16px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "12px", fontSize: "13px", color: "#be123c" }}>
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+            <div style={{ width: "32px", height: "32px", borderRadius: "50%", border: "3px solid #e9d5ff", borderTopColor: "#a78bfa", animation: "spin 0.7s linear infinite" }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : data.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 text-sm">
-            No analytics data yet. Create and schedule some tasks first.
+          <div style={{ textAlign: "center", padding: "80px 0" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>📊</div>
+            <p style={{ fontSize: "15px", color: "#9ca3af" }}>No analytics data yet</p>
+            <p style={{ fontSize: "13px", color: "#c4b5fd" }}>Create and schedule some tasks to see insights here</p>
           </div>
         ) : (
           <>
             {/* Summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <p className="text-xs text-gray-400 mb-1">Total time tracked</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m
-                </p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <p className="text-xs text-gray-400 mb-1">Team members</p>
-                <p className="text-2xl font-semibold text-gray-900">{uniqueUsers.length}</p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <p className="text-xs text-gray-400 mb-1">Active days</p>
-                <p className="text-2xl font-semibold text-gray-900">{uniqueDays.length}</p>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px", marginBottom: "24px" }}>
+              {summaryCards.map(({ label, value, color, bg, border }) => (
+                <div key={label} style={{
+                  background: bg, border: `1px solid ${border}`, borderRadius: "16px",
+                  padding: "20px 22px", backdropFilter: "blur(8px)"
+                }}>
+                  <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 8px", fontWeight: 500 }}>{label}</p>
+                  <p style={{ fontSize: "28px", fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{value}</p>
+                </div>
+              ))}
             </div>
 
-            {/* Bar chart — time per person per day */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-              <h2 className="text-sm font-medium text-gray-700 mb-4">
-                Time per person per day (minutes)
-              </h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={barData} margin={{ top: 4, right: 16, left: 0, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            {/* Bar chart */}
+            <div style={{
+              background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
+              border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
+              padding: "24px", marginBottom: "20px",
+              boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+            }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#4b5563", margin: "0 0 20px" }}>
+                Time per person per day <span style={{ color: "#c4b5fd", fontWeight: 400 }}>(minutes)</span>
+              </p>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={barData} margin={{ top: 4, right: 8, left: 0, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(196,181,253,0.15)" />
                   <XAxis
                     dataKey="name"
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    angle={-35}
+                    tick={{ fontSize: 11, fill: "#c4b5fd" }}
+                    angle={-30}
                     textAnchor="end"
                     interval={0}
                   />
-                  <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} />
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: 12,
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                    }}
-                  />
-                  <Bar dataKey="minutes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <YAxis tick={{ fontSize: 11, fill: "#c4b5fd" }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="minutes" radius={[6, 6, 0, 0]}>
+                    {barData.map((_, i) => (
+                      <Cell key={i} fill={i % 2 === 0 ? "#c084fc" : "#818cf8"} fillOpacity={0.7} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Bottom row — pie chart + breakdown table */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Bottom row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
 
-              {/* Pie chart — by category */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h2 className="text-sm font-medium text-gray-700 mb-4">
+              {/* Pie chart */}
+              <div style={{
+                background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
+                border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
+                padding: "24px", boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+              }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
                   Time by category
-                </h2>
+                </p>
                 {pieData.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10">No category data</p>
+                  <p style={{ fontSize: "13px", color: "#9ca3af", textAlign: "center", padding: "40px 0" }}>No category data</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
                       <Pie
                         data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={3}
+                        cx="50%" cy="50%"
+                        innerRadius={55} outerRadius={90}
+                        paddingAngle={4}
                         dataKey="value"
                       >
-                        {pieData.map((entry) => (
+                        {pieData.map(entry => (
                           <Cell
                             key={entry.name}
-                            fill={CATEGORY_COLORS[entry.name] || "#94a3b8"}
+                            fill={CATEGORY_COLORS[entry.name] || "#c4b5fd"}
+                            fillOpacity={0.8}
                           />
                         ))}
                       </Pie>
-                      <Tooltip
-                        formatter={(val) => `${val} min`}
-                        contentStyle={{
-                          fontSize: 12,
-                          borderRadius: 8,
-                          border: "1px solid #e5e7eb",
-                        }}
-                      />
+                      <Tooltip formatter={val => [`${val} min`, ""]} content={<CustomTooltip />} />
                       <Legend
                         iconType="circle"
-                        iconSize={8}
-                        wrapperStyle={{ fontSize: 12 }}
+                        iconSize={7}
+                        wrapperStyle={{ fontSize: 12, color: "#9ca3af" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -172,27 +180,43 @@ export default function AnalyticsPage() {
               </div>
 
               {/* Breakdown table */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h2 className="text-sm font-medium text-gray-700 mb-4">
+              <div style={{
+                background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
+                border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
+                padding: "24px", boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+              }}>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
                   Per member breakdown
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                </p>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr className="border-b border-gray-100">
-                        <th className="text-left text-xs text-gray-400 font-medium pb-2">Member</th>
-                        <th className="text-left text-xs text-gray-400 font-medium pb-2">Date</th>
-                        <th className="text-right text-xs text-gray-400 font-medium pb-2">Minutes</th>
+                      <tr style={{ borderBottom: "1px solid rgba(196,181,253,0.2)" }}>
+                        {["Member", "Date", "Minutes"].map((h, i) => (
+                          <th key={h} style={{
+                            fontSize: "11px", fontWeight: 600, color: "#c4b5fd",
+                            padding: "0 0 10px",
+                            textAlign: i === 2 ? "right" : "left",
+                            letterSpacing: "0.05em", textTransform: "uppercase"
+                          }}>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {data.map((entry, i) => (
-                        <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-2 text-gray-700">{entry.userName}</td>
-                          <td className="py-2 text-gray-500">
+                        <tr
+                          key={i}
+                          style={{ borderBottom: "1px solid rgba(196,181,253,0.08)", transition: "background 0.1s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(233,213,255,0.15)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        >
+                          <td style={{ padding: "10px 0", fontSize: "13px", color: "#4b5563", fontWeight: 500 }}>{entry.userName}</td>
+                          <td style={{ padding: "10px 0", fontSize: "12px", color: "#9ca3af" }}>
                             {dayjs(entry.date).format("MMM D, YYYY")}
                           </td>
-                          <td className="py-2 text-right text-gray-700 font-medium">
+                          <td style={{ padding: "10px 0", fontSize: "13px", fontWeight: 700, color: "#818cf8", textAlign: "right" }}>
                             {entry.totalMinutes}
                           </td>
                         </tr>
@@ -201,7 +225,6 @@ export default function AnalyticsPage() {
                   </table>
                 </div>
               </div>
-
             </div>
           </>
         )}

@@ -2,80 +2,220 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
+// Regex rules
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REGEX = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+
+const validate = (form) => {
+  const errors = {};
+  if (!EMAIL_REGEX.test(form.email)) {
+    errors.email = "Enter a valid email address";
+  }
+  if (!PASSWORD_REGEX.test(form.password)) {
+    errors.password = "Password must be at least 6 characters with 1 letter and 1 number";
+  }
+  return errors;
+};
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleChange = (field, value) => {
+    setForm(f => ({ ...f, [field]: value }));
+    // Clear field error as user types
+    if (errors[field]) setErrors(e => ({ ...e, [field]: "" }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setServerError("");
+
+    const validationErrors = validate(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setLoading(true);
     try {
       await login(form.email, form.password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      setServerError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
+  const inputStyle = (hasError) => ({
+    width: "100%", padding: "10px 14px", fontSize: "14px",
+    background: hasError ? "rgba(254,242,242,0.5)" : "#fafafa",
+    border: `1.5px solid ${hasError ? "rgba(252,165,165,0.8)" : "#e5e7eb"}`,
+    borderRadius: "12px", outline: "none",
+    transition: "border-color 0.2s", boxSizing: "border-box", color: "#1f2937",
+    fontFamily: "inherit"
+  });
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Welcome back</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to your account</p>
+    <div className="min-h-screen flex" style={{ background: "linear-gradient(135deg, #fdf6f0 0%, #f5eef8 50%, #eef4fd 100%)" }}>
+      {/* Left decorative panel */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden">
+        <div style={{ position: "absolute", top: "-60px", left: "-60px", width: "360px", height: "360px", borderRadius: "50%", background: "radial-gradient(circle, rgba(233,213,255,0.5) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: "80px", right: "-40px", width: "280px", height: "280px", borderRadius: "50%", background: "radial-gradient(circle, rgba(186,230,255,0.4) 0%, transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: "-40px", left: "120px", width: "200px", height: "200px", borderRadius: "50%", background: "radial-gradient(circle, rgba(254,215,170,0.4) 0%, transparent 70%)" }} />
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-            {error}
+        <div className="relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "linear-gradient(135deg, #c084fc, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
+                <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.6"/>
+                <rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.6"/>
+                <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
+              </svg>
+            </div>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 600, color: "#4c1d95" }}>TaskFlow</span>
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="relative z-10 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com"
-            />
+            <p style={{ fontSize: "13px", fontWeight: 500, letterSpacing: "0.08em", color: "#a855f7", textTransform: "uppercase", marginBottom: "12px" }}>
+              Manage · Schedule · Thrive
+            </p>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "42px", fontWeight: 700, color: "#1e1b4b", lineHeight: 1.2 }}>
+              Your team's tasks,<br />beautifully organised.
+            </h1>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
-            />
+          <p style={{ fontSize: "16px", color: "#6b7280", lineHeight: 1.7, maxWidth: "400px" }}>
+            Auto-scheduling, smart priorities, and real-time analytics — everything your team needs in one calm, focused workspace.
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            {["✦ Auto-scheduling", "✦ Kanban & List views", "✦ Team analytics", "✦ Calendar sync"].map(f => (
+              <span key={f} style={{ padding: "6px 14px", borderRadius: "99px", background: "rgba(255,255,255,0.7)", border: "1px solid rgba(196,181,253,0.4)", fontSize: "13px", color: "#7c3aed", fontWeight: 500 }}>{f}</span>
+            ))}
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-sm text-gray-500">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline font-medium">
-            Register
-          </Link>
-        </p>
+        <div className="relative z-10 mb-4">
+          <div style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(12px)", border: "1px solid rgba(196,181,253,0.3)", borderRadius: "16px", padding: "16px 20px", maxWidth: "340px", boxShadow: "0 8px 32px rgba(139,92,246,0.08)" }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#a78bfa" }} />
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#4c1d95" }}>Q4 Investment Analysis</span>
+              <span style={{ marginLeft: "auto", fontSize: "11px", padding: "2px 8px", borderRadius: "99px", background: "#fef3c7", color: "#92400e", fontWeight: 500 }}>Medium</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div style={{ height: "4px", flex: 1, borderRadius: "99px", background: "#ede9fe", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: "65%", borderRadius: "99px", background: "linear-gradient(90deg, #a78bfa, #818cf8)" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "#7c3aed", fontWeight: 600 }}>65%</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Right: Login form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div style={{ width: "100%", maxWidth: "420px", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", borderRadius: "24px", border: "1px solid rgba(196,181,253,0.2)", padding: "40px", boxShadow: "0 20px 60px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.8)" }}>
+
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <div style={{ width: "32px", height: "32px", borderRadius: "9px", background: "linear-gradient(135deg, #c084fc, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
+                <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity="0.6"/>
+                <rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.6"/>
+                <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
+              </svg>
+            </div>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: 600, color: "#4c1d95" }}>TaskFlow</span>
+          </div>
+
+          <div className="mb-8">
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "28px", fontWeight: 700, color: "#1e1b4b", marginBottom: "6px" }}>
+              Welcome back
+            </h2>
+            <p style={{ fontSize: "14px", color: "#9ca3af" }}>Sign in to your workspace</p>
+          </div>
+
+          {serverError && (
+            <div style={{ marginBottom: "20px", padding: "12px 16px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "12px", fontSize: "13px", color: "#be123c" }}>
+              {serverError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            {/* Email */}
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>
+                Email address
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => handleChange("email", e.target.value)}
+                placeholder="you@example.com"
+                style={inputStyle(!!errors.email)}
+                onFocus={e => { if (!errors.email) e.target.style.borderColor = "#c084fc"; }}
+                onBlur={e => { if (!errors.email) e.target.style.borderColor = "#e5e7eb"; }}
+              />
+              {errors.email && (
+                <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "5px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span>⚠</span> {errors.email}
+                </p>
+              )}
+            </div>
+
+            {/* Password */}
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>
+                Password
+              </label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={e => handleChange("password", e.target.value)}
+                placeholder="••••••••"
+                style={inputStyle(!!errors.password)}
+                onFocus={e => { if (!errors.password) e.target.style.borderColor = "#c084fc"; }}
+                onBlur={e => { if (!errors.password) e.target.style.borderColor = "#e5e7eb"; }}
+              />
+              {errors.password && (
+                <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "5px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span>⚠</span> {errors.password}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%", padding: "11px", borderRadius: "12px",
+                background: loading ? "#d8b4fe" : "linear-gradient(135deg, #c084fc 0%, #818cf8 100%)",
+                border: "none", color: "white", fontSize: "14px", fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer", transition: "opacity 0.2s",
+                marginTop: "4px", fontFamily: "inherit"
+              }}
+            >
+              {loading ? "Signing in..." : "Sign in →"}
+            </button>
+          </form>
+
+          <p style={{ marginTop: "24px", textAlign: "center", fontSize: "13px", color: "#9ca3af" }}>
+            Don't have an account?{" "}
+            <Link to="/register" style={{ color: "#7c3aed", fontWeight: 600, textDecoration: "none" }}>
+              Create one free
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&display=swap" rel="stylesheet" />
     </div>
   );
 }
