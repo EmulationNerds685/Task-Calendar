@@ -1,12 +1,12 @@
 import express from "express";
 import { getCalendarEvents } from "../controller/calendarController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken,checkRole } from "../middleware/authMiddleware.js";
 import CalendarEvent from "../models/CalendarEvent.js";
 import Task from "../models/Task.js";
 const router = express.Router();
 
 router.get("/", verifyToken, getCalendarEvents);
-router.patch("/:eventId", verifyToken, async (req, res) => {
+router.patch("/:eventId", verifyToken, checkRole("admin"), async (req, res) => {
   try {
     const event = await CalendarEvent.findByIdAndUpdate(
       req.params.eventId,
