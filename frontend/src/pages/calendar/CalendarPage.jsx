@@ -8,7 +8,7 @@ import useCalendarEvents from "../../hooks/useCalendarEvents";
 import api from "../../api/axios";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-
+import { useAuth } from "../../context/AuthContext";
 const localizer = dateFnsLocalizer({
   format,
   parse,
@@ -74,7 +74,8 @@ export default function CalendarPage() {
   const endDate = dayjs(date).endOf("month").add(7, "day").toISOString();
 
   const { events, loading, error, refetch } = useCalendarEvents(startDate, endDate);
-
+const { user } = useAuth();
+const isAdmin = user?.role === "admin";
   const eventStyleGetter = useCallback((event) => {
     const priority = event.resource?.task?.priority;
     const pc = priorityConfig[priority] || { bg: "rgba(238,242,255,0.9)", color: "#818cf8", text: "#4338ca" };
@@ -228,7 +229,7 @@ export default function CalendarPage() {
               resizable
               style={{ height: 580 }}
               views={["month", "week", "day"]}
-              draggableAccessor={() => true}
+             draggableAccessor={() => isAdmin}
             />
           )}
         </div>
