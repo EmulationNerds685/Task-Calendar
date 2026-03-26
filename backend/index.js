@@ -6,13 +6,21 @@ import authRoutes from "./routes/authRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js"; // CHANGE #4
 import startCronJobs from "./utils/cronJobs.js";
-import Task from "./models/Task.js";
+
+import path from "path";
+import { fileURLToPath } from "url";
+
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ✅ cors and json MUST come before routes
+app.use(express.static(path.join(__dirname, "public")));
+
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true
@@ -23,11 +31,11 @@ app.use("/api/auth",      authRoutes);
 app.use("/api/tasks",     taskRoutes);
 app.use("/api/calendar",  calendarRoutes);
 app.use("/api/analytics", analyticsRoutes);
-
+app.use("/api/settings",  settingsRoutes); // CHANGE #4
 
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  startCronJobs()
+  startCronJobs();
   app.listen(PORT, () => console.log(`Server running on ${PORT}`));
 });

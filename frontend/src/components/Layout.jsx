@@ -2,18 +2,9 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+// CHANGE #5: Calendar is first nav item
+// CHANGE #4: Settings nav item added (admin only)
 const navItems = [
-  {
-    label: "Dashboard", path: "/dashboard",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.8"/>
-        <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.5"/>
-        <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.5"/>
-        <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.8"/>
-      </svg>
-    )
-  },
   {
     label: "Calendar", path: "/calendar",
     icon: (
@@ -28,6 +19,17 @@ const navItems = [
     )
   },
   {
+    label: "Dashboard", path: "/dashboard",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.8"/>
+        <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.5"/>
+        <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.5"/>
+        <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.8"/>
+      </svg>
+    )
+  },
+  {
     label: "Analytics", path: "/analytics",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -38,10 +40,21 @@ const navItems = [
   },
 ];
 
+const settingsItem = {
+  label: "Settings", path: "/settings",
+  icon: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  )
+};
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
     logout();
@@ -49,6 +62,8 @@ export default function Layout({ children }) {
   };
 
   const initials = user?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+
+  const allNavItems = isAdmin ? [...navItems, settingsItem] : navItems;
 
   return (
     <>
@@ -114,7 +129,7 @@ export default function Layout({ children }) {
 
           {/* Nav items */}
           <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: "2px" }}>
-            {navItems.map((item) => (
+            {allNavItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}

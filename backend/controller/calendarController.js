@@ -9,11 +9,9 @@ export const getCalendarEvents = async (req, res) => {
 
     const filter = {};
 
-    // Role based filtering
-    if (req.user.role === "admin") {
-      if (user) filter.user = user;
-    } else {
-      filter.user = req.user.id;
+    // Filter by user if explicitly requested, but all roles see all tasks by default
+    if (user) {
+      filter.user = user;
     }
 
     // Date filtering
@@ -26,7 +24,10 @@ export const getCalendarEvents = async (req, res) => {
     const events = await CalendarEvent.find(filter)
       .populate({
         path: "task",
-        select: "title priority category status"
+        populate: {
+          path: "assignedTo",
+          select: "name email"
+        }
       })
       .populate({
         path: "user",
@@ -34,7 +35,16 @@ export const getCalendarEvents = async (req, res) => {
       })
       .sort({ date: 1, startTime: 1 });
 
-    res.status(200).json(events);
+    // Deduplicate: if same task in same slot (date + startTime), only return once
+    const seen = new Set();
+    const uniqueEvents = events.filter(e => {
+      const key = `${e.task?._id || e.task}-${new Date(e.date).getTime()}-${e.startTime}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    res.status(200).json(uniqueEvents);
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch calendar events",

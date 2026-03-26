@@ -1,4 +1,5 @@
 import useUsers from "../hooks/useUsers";
+import useSettings from "../hooks/useSettings"; // CHANGE #4
 
 const selectStyle = (active) => ({
   padding: "7px 28px 7px 12px", borderRadius: "10px", fontSize: "13px", fontWeight: 500,
@@ -28,6 +29,8 @@ const ChevronIcon = ({ active }) => (
 
 export default function TaskFilters({ filters, onChange }) {
   const { users } = useUsers();
+  const { settings } = useSettings(); // CHANGE #4: dynamic values
+
   const handle = (key, val) => onChange({ ...filters, [key]: val });
 
   const hasFilters = filters.status || filters.priority || filters.category
@@ -36,7 +39,7 @@ export default function TaskFilters({ filters, onChange }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
 
-      {/* Status */}
+      {/* Status — CHANGE #4 */}
       <div style={{ position: "relative" }}>
         <select
           value={filters.status || ""}
@@ -46,15 +49,12 @@ export default function TaskFilters({ filters, onChange }) {
           onBlur={e => e.target.style.borderColor = filters.status ? "rgba(196,181,253,0.6)" : "rgba(196,181,253,0.3)"}
         >
           <option value="">All statuses</option>
-          <option>Not Started</option>
-          <option>In Progress</option>
-          <option>Completed</option>
-          <option>Overdue</option>
+          {settings.statuses.map(s => <option key={s}>{s}</option>)}
         </select>
         <ChevronIcon active={!!filters.status} />
       </div>
 
-      {/* Priority */}
+      {/* Priority — CHANGE #4 */}
       <div style={{ position: "relative" }}>
         <select
           value={filters.priority || ""}
@@ -64,14 +64,12 @@ export default function TaskFilters({ filters, onChange }) {
           onBlur={e => e.target.style.borderColor = filters.priority ? "rgba(196,181,253,0.6)" : "rgba(196,181,253,0.3)"}
         >
           <option value="">All priorities</option>
-          <option>High</option>
-          <option>Medium</option>
-          <option>Low</option>
+          {settings.priorities.map(p => <option key={p}>{p}</option>)}
         </select>
         <ChevronIcon active={!!filters.priority} />
       </div>
 
-      {/* Category */}
+      {/* Category — CHANGE #4 */}
       <div style={{ position: "relative" }}>
         <select
           value={filters.category || ""}
@@ -81,16 +79,12 @@ export default function TaskFilters({ filters, onChange }) {
           onBlur={e => e.target.style.borderColor = filters.category ? "rgba(196,181,253,0.6)" : "rgba(196,181,253,0.3)"}
         >
           <option value="">All categories</option>
-          <option>Research</option>
-          <option>Admin</option>
-          <option>Investment Analysis</option>
-          <option>Compliance</option>
-          <option>Operations</option>
+          {settings.categories.map(c => <option key={c}>{c}</option>)}
         </select>
         <ChevronIcon active={!!filters.category} />
       </div>
 
-      {/* Assigned to — person filter */}
+      {/* Assigned to */}
       {users.length > 0 && (
         <div style={{ position: "relative" }}>
           <select

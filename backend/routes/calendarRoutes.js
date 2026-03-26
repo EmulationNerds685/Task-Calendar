@@ -6,16 +6,41 @@ import Task from "../models/Task.js";
 const router = express.Router();
 
 router.get("/", verifyToken, getCalendarEvents);
-router.patch("/:eventId", verifyToken, checkRole("admin"), async (req, res) => {
+router.patch("/:eventId", verifyToken, async (req, res) => {
   try {
-    const event = await CalendarEvent.findByIdAndUpdate(
-      req.params.eventId,
-      { date: req.body.date, startTime: req.body.startTime, endTime: req.body.endTime },
-      { new: true }
-    );
+    const event = await CalendarEvent.findById(req.params.id || req.params.eventId).populate("task");
     if (!event) return res.status(404).json({ message: "Event not found" });
-    await Task.findByIdAndUpdate(event.task, { scheduledDate: req.body.date });
-    res.json(event);
+
+    // Permissions: Admin or any member assigned to the task
+    const isAdmin = req.user.role === "admin";
+    const assignees = (event.task?.assignedTo || []).map(id => id.toString());
+    const isAssigned = assignees.includes(req.user.id);
+
+    if (!isAdmin && !isAssigned) {
+      return res.status(403).json({ message: "Forbidden. Not allowed to reschedule this task." });
+    }
+
+    const updateFields = {
+      date:      req.body.date,
+      startTime: req.body.startTime,
+      endTime:   req.body.endTime,
+    };
+    if (req.body.endDate !== undefined) {
+      updateFields.endDate = req.body.endDate;
+    }
+
+    // UPDATE ALL associated events for this task at this specific time slot
+    // This ensures that when one person drags the shared task, it moves for everyone.
+    await CalendarEvent.updateMany(
+      { task: event.task._id, date: event.date, startTime: event.startTime },
+      updateFields
+    );
+
+    // Keep task.scheduledDate in sync 
+    await Task.findByIdAndUpdate(event.task._id, { scheduledDate: req.body.date });
+
+    const updatedEvent = await CalendarEvent.findById(req.params.eventId);
+    res.json(updatedEvent);
   } catch (error) {
     res.status(500).json({ message: "Failed to update event", error: error.message });
   }

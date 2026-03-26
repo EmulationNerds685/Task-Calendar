@@ -7,11 +7,66 @@ const priorityConfig = {
 };
 
 const statusConfig = {
-  "Not Started": { bg: "#f1f5f9", text: "#64748b" },
+  "Not Started": { bg: "#f1f5f9",              text: "#64748b" },
   "In Progress":  { bg: "rgba(238,242,255,0.9)", text: "#6366f1" },
   "Completed":    { bg: "rgba(236,253,245,0.9)", text: "#10b981" },
   "Overdue":      { bg: "rgba(254,242,242,0.9)", text: "#ef4444" },
 };
+
+// CHANGE #3: render multiple assignee avatars stacked
+function AssigneeAvatars({ assignedTo }) {
+  const people = Array.isArray(assignedTo)
+    ? assignedTo
+    : assignedTo ? [assignedTo] : [];
+
+  if (people.length === 0) return null;
+
+  const MAX_SHOW = 3;
+  const shown = people.slice(0, MAX_SHOW);
+  const extra = people.length - MAX_SHOW;
+
+  return (
+    <div style={{
+      paddingTop: "10px", borderTop: "1px solid rgba(196,181,253,0.15)",
+      display: "flex", alignItems: "center", gap: "6px"
+    }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {shown.map((person, i) => (
+          <div
+            key={i}
+            title={person?.name}
+            style={{
+              width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
+              background: "linear-gradient(135deg, #e9d5ff, #c7d2fe)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "10px", fontWeight: 700, color: "#7c3aed",
+              marginLeft: i === 0 ? 0 : "-6px",
+              border: "2px solid white",
+              zIndex: shown.length - i
+            }}
+          >
+            {person?.name?.[0]?.toUpperCase()}
+          </div>
+        ))}
+        {extra > 0 && (
+          <div style={{
+            width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
+            background: "rgba(233,213,255,0.7)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "9px", fontWeight: 700, color: "#7c3aed",
+            marginLeft: "-6px", border: "2px solid white"
+          }}>
+            +{extra}
+          </div>
+        )}
+      </div>
+      <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+        {shown.map(p => p?.name?.split(" ")[0]).join(", ")}
+        {extra > 0 ? ` +${extra}` : ""}
+      </span>
+    </div>
+  );
+}
 
 export default function TaskCard({ task, onClick }) {
   const pc = priorityConfig[task.priority] || priorityConfig.Medium;
@@ -89,47 +144,39 @@ export default function TaskCard({ task, onClick }) {
         </span>
         {task.dueDate && (
           <span style={{ fontSize: "11px", color: "#c4b5fd", fontWeight: 500 }}>
-            Due {dayjs(task.dueDate).format("MMM D")}
+            Deadline: {dayjs(task.dueDate).format("MMM D")}
+          </span>
+        )}
+        {(task.attachments?.length > 0 || task.referenceLinks?.length > 0) && (
+          <span style={{
+            fontSize: "10px", background: "rgba(139,92,246,0.1)", color: "#7c3aed",
+            padding: "2px 6px", borderRadius: "6px", fontWeight: 600, marginLeft: "auto"
+          }}>
+            📎 {(task.attachments?.length || 0) + (task.referenceLinks?.length || 0)}
           </span>
         )}
       </div>
 
-      {/* Scheduled slot — auto-planning indicator */}
+      {/* Scheduled slot */}
       {hasSchedule && (
         <div style={{
           display: "flex", alignItems: "center", gap: "6px",
           padding: "6px 10px", borderRadius: "8px",
           background: "rgba(238,242,255,0.6)", border: "1px solid rgba(196,181,253,0.2)",
-          marginBottom: task.assignedTo ? "10px" : 0
+          marginBottom: "10px"
         }}>
-          {/* Calendar icon */}
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}>
             <rect x="1" y="2" width="10" height="9" rx="2" stroke="#818cf8" strokeWidth="1" fill="none"/>
             <path d="M4 1v2M8 1v2M1 5h10" stroke="#818cf8" strokeWidth="1" strokeLinecap="round"/>
           </svg>
           <span style={{ fontSize: "11px", color: "#6366f1", fontWeight: 500 }}>
-            {dayjs(task.scheduledDate).format("MMM D")} · {task.scheduledSlot}
+            Scheduled for {dayjs(task.scheduledDate).format("MMM D")} · {task.scheduledSlot}
           </span>
         </div>
       )}
 
-      {/* Assignee */}
-      {task.assignedTo && (
-        <div style={{
-          paddingTop: "10px", borderTop: "1px solid rgba(196,181,253,0.15)",
-          display: "flex", alignItems: "center", gap: "8px"
-        }}>
-          <div style={{
-            width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
-            background: "linear-gradient(135deg, #e9d5ff, #c7d2fe)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "10px", fontWeight: 700, color: "#7c3aed"
-          }}>
-            {task.assignedTo.name?.[0]?.toUpperCase()}
-          </div>
-          <span style={{ fontSize: "12px", color: "#9ca3af" }}>{task.assignedTo.name}</span>
-        </div>
-      )}
+      {/* CHANGE #3: Multi-assignee avatars */}
+      <AssigneeAvatars assignedTo={task.assignedTo} />
     </div>
   );
 }

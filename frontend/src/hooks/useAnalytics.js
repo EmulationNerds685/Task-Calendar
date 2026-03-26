@@ -1,26 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../api/axios";
 
-export default function useAnalytics() {
+// CHANGE #13: accepts optional userId to filter analytics to a single member.
+// CHANGE #14: returns allocatedHours and weeklyActualMinutes from backend.
+export default function useAnalytics(userId = "") {
   const [data, setData] = useState([]);
+  const [allocatedHours, setAllocatedHours] = useState({});
+  const [weeklyActualMinutes, setWeeklyActualMinutes] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (userId) params.append("userId", userId);
+      const res = await api.get(`/analytics?${params.toString()}`);
+      setData(res.data.analytics || []);
+      setAllocatedHours(res.data.allocatedHours || {});
+      setWeeklyActualMinutes(res.data.weeklyActualMinutes || {});
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to fetch analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      setLoading(true);
-      try {
-        const res = await api.get("/analytics");
-        setData(res.data);
-      } catch (err) {
-        setError(err.response?.data?.message || "Failed to fetch analytics");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAnalytics();
-  }, []);
+  }, [fetchAnalytics]);
 
-  return { data, loading, error };
+  return { data, allocatedHours, weeklyActualMinutes, loading, error };
 }

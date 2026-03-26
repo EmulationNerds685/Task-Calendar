@@ -2,29 +2,34 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import useUsers from "../hooks/useUsers";
+import useSettings from "../hooks/useSettings";
+
+// Fields a member can set when creating their own task
+const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments"];
+// Fields a member can change on an existing task
+const MEMBER_EDITABLE_UPDATE = ["description", "estimatedTime", "status", "referenceLinks", "dueDate", "attachments"];
 
 const EMPTY_FORM = {
-  title: "",
-  description: "",
-  assignedTo: "",
-  priority: "Medium",
-  category: "",
-  dueDate: "",
-  estimatedTime: "",
-  status: "Not Started",
+  title:          "",
+  description:    "",
+  assignedTo:     [],
+  priority:       "Medium",
+  category:       "",
+  dueDate:        "",
+  estimatedTime:  "",
+  status:         "Not Started",
+  referenceLinks: "",
+  attachments:    [],
 };
 
-const PRIORITIES = [
-  { val: "High",   dot: "#ef4444", bg: "rgba(254,242,242,0.7)", activeBorder: "rgba(252,165,165,0.6)", activeText: "#ef4444" },
-  { val: "Medium", dot: "#f59e0b", bg: "rgba(255,251,235,0.7)", activeBorder: "rgba(253,211,77,0.6)",  activeText: "#f59e0b" },
-  { val: "Low",    dot: "#10b981", bg: "rgba(236,253,245,0.7)", activeBorder: "rgba(110,231,183,0.6)", activeText: "#10b981" },
-];
-
-const CATEGORIES = ["Research", "Admin", "Investment Analysis", "Compliance", "Operations"];
-const STATUSES = ["Not Started", "In Progress", "Completed", "Overdue"];
+const priorityMeta = {
+  High:   { dot: "#ef4444", bg: "rgba(254,242,242,0.7)", activeBorder: "rgba(252,165,165,0.6)", activeText: "#ef4444" },
+  Medium: { dot: "#f59e0b", bg: "rgba(255,251,235,0.7)", activeBorder: "rgba(253,211,77,0.6)",  activeText: "#f59e0b" },
+  Low:    { dot: "#10b981", bg: "rgba(236,253,245,0.7)", activeBorder: "rgba(110,231,183,0.6)", activeText: "#10b981" },
+};
 
 const statusColors = {
-  "Not Started": { bg: "#f1f5f9", text: "#64748b", activeBorder: "#94a3b8" },
+  "Not Started": { bg: "#f1f5f9",               text: "#64748b", activeBorder: "#94a3b8" },
   "In Progress":  { bg: "rgba(238,242,255,0.8)", text: "#6366f1", activeBorder: "#818cf8" },
   "Completed":    { bg: "rgba(236,253,245,0.8)", text: "#10b981", activeBorder: "#34d399" },
   "Overdue":      { bg: "rgba(254,242,242,0.8)", text: "#ef4444", activeBorder: "#f87171" },
@@ -36,7 +41,7 @@ const inputStyle = (disabled = false) => ({
   border: "1.5px solid #e5e7eb", borderRadius: "11px",
   outline: "none", color: disabled ? "#9ca3af" : "#1f2937",
   transition: "border-color 0.15s", boxSizing: "border-box",
-  cursor: disabled ? "not-allowed" : "text"
+  cursor: disabled ? "not-allowed" : "text",
 });
 
 const Label = ({ children, required }) => (
@@ -46,66 +51,198 @@ const Label = ({ children, required }) => (
   </label>
 );
 
-export default function TaskFormModal({ task, onClose, onSaved }) {
-  const { user } = useAuth();
-  const { users } = useUsers();
-  const isEdit = !!task;
-  const isAdmin = user?.role === "admin";
+// Reusable member picker used by both admin (assignedTo) and member (share)
+function MemberPicker({ users, selectedIds, onToggle, excludeIds = [] }) {
+  const visible = users.filter(u => !excludeIds.includes(u._id));
+  if (visible.length === 0) {
+    return <p style={{ fontSize: "12px", color: "#d1d5db", padding: "6px 0" }}>No other members available</p>;
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "180px", overflowY: "auto", padding: "2px" }}>
+      {visible.map(u => {
+        const isSelected = selectedIds.includes(u._id);
+        const initials   = u.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+        return (
+          <button
+            key={u._id}
+            type="button"
+            onClick={() => onToggle(u._id)}
+            style={{
+              display: "flex", alignItems: "center", gap: "10px",
+              padding: "8px 12px", borderRadius: "10px", cursor: "pointer",
+              border: isSelected ? "1.5px solid rgba(196,181,253,0.6)" : "1.5px solid #e5e7eb",
+              background: isSelected ? "rgba(233,213,255,0.4)" : "rgba(249,250,251,0.6)",
+              transition: "all 0.15s", textAlign: "left",
+            }}
+          >
+            <div style={{
+              width: "26px", height: "26px", borderRadius: "50%", flexShrink: 0,
+              background: isSelected ? "linear-gradient(135deg,#c084fc,#818cf8)" : "linear-gradient(135deg,#e9d5ff,#c7d2fe)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "10px", fontWeight: 700, color: isSelected ? "white" : "#7c3aed",
+            }}>
+              {initials}
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: "13px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "#4c1d95" : "#4b5563" }}>
+                {u.name}
+              </p>
+              <p style={{ margin: 0, fontSize: "11px", color: "#a78bfa", textTransform: "capitalize" }}>{u.role}</p>
+            </div>
+            {isSelected && (
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" fill="rgba(192,132,252,0.2)" stroke="#c084fc" strokeWidth="1.2"/>
+                <path d="M4.5 7l2 2 3-3" stroke="#7c3aed" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [error, setError] = useState("");
+export default function TaskFormModal({ task, onClose, onSaved }) {
+  const { user }     = useAuth();
+  const { users }    = useUsers();
+  const { settings } = useSettings();
+  const isEdit       = !!task;
+  const isAdmin      = user?.role === "admin";
+
+  const [form, setForm]       = useState(EMPTY_FORM);
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Share state — for members editing a task
+  const [shareIds, setShareIds] = useState([]);
+  const [sharing, setSharing]   = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
+  const [newLink, setNewLink]   = useState({ name: "", url: "" });
+
+  // canEdit: admins edit everything; members have field-level restrictions
+  const editableFields = isAdmin ? null : isEdit ? MEMBER_EDITABLE_UPDATE : MEMBER_EDITABLE_CREATE;
+  const canEdit = (field) => isAdmin || editableFields?.includes(field);
 
   useEffect(() => {
     if (task) {
+      let assignedIds = [];
+      if (Array.isArray(task.assignedTo)) {
+        assignedIds = task.assignedTo.map(u => (typeof u === "object" ? u._id : u));
+      } else if (task.assignedTo) {
+        assignedIds = [typeof task.assignedTo === "object" ? task.assignedTo._id : task.assignedTo];
+      }
       setForm({
-        title: task.title || "",
-        description: task.description || "",
-        assignedTo: task.assignedTo?._id || task.assignedTo || "",
-        priority: task.priority || "Medium",
-        category: task.category || "",
-        dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
-        estimatedTime: task.estimatedTime || "",
-        status: task.status || "Not Started",
+        title:          task.title        || "",
+        description:    task.description  || "",
+        assignedTo:     assignedIds,
+        priority:       task.priority     || "Medium",
+        category:       task.category     || "",
+        dueDate:        task.dueDate ? task.dueDate.split("T")[0] : "",
+        estimatedTime:  task.estimatedTime || "",
+        status:         task.status       || "Not Started",
+        referenceLinks: (task.referenceLinks || []).join("\n"),
+        attachments:    task.attachments    || [],
       });
     }
   }, [task]);
 
   const handle = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
+  const toggleAssignee = (userId) => {
+    setForm(f => ({
+      ...f,
+      assignedTo: f.assignedTo.includes(userId)
+        ? f.assignedTo.filter(id => id !== userId)
+        : [...f.assignedTo, userId],
+    }));
+  };
+
+  const toggleShareId = (userId) => {
+    setShareIds(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleShare = async () => {
+    if (shareIds.length === 0) return;
+    setSharing(true);
+    setShareMsg("");
+    try {
+      await api.post(`/tasks/${task._id}/share`, { userIds: shareIds });
+      setShareMsg("✓ Task shared successfully!");
+      setShareIds([]);
+      onSaved();
+    } catch (err) {
+      setShareMsg(err.response?.data?.message || "Failed to share task");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (isAdmin && !isEdit && form.assignedTo.length === 0) {
+      setError("Please assign at least one team member.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         ...form,
         estimatedTime: form.estimatedTime ? Number(form.estimatedTime) : undefined,
+        referenceLinks: form.referenceLinks
+          ? form.referenceLinks.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+          : [],
       };
+
+      // Members: strip fields they're not allowed to send
+      if (!isAdmin) {
+        const allowed = isEdit ? MEMBER_EDITABLE_UPDATE : MEMBER_EDITABLE_CREATE;
+        Object.keys(payload).forEach(k => { if (!allowed.includes(k)) delete payload[k]; });
+      }
+
       if (isEdit) {
         await api.patch(`/tasks/${task._id}`, payload);
       } else {
         await api.post("/tasks", payload);
       }
-      onSaved();
+      // Close modal FIRST (unmounts component), then refresh parent data
       onClose();
+      onSaved?.();
     } catch (err) {
+      setLoading(false);
       setError(
         err.response?.data?.errors?.[0]?.message ||
         err.response?.data?.message ||
         "Something went wrong"
       );
-    } finally {
-      setLoading(false);
     }
   };
+
+  const PRIORITIES = settings.priorities.map(val =>
+    priorityMeta[val]
+      ? { val, ...priorityMeta[val] }
+      : { val, dot: "#c084fc", bg: "rgba(233,213,255,0.4)", activeBorder: "rgba(196,181,253,0.6)", activeText: "#7c3aed" }
+  );
+
+  // IDs already on the task — excluded from share picker
+  const currentAssigneeIds = form.assignedTo.map(String);
+
+  const subtitle = isAdmin
+    ? "Admin — full access"
+    : isEdit
+      ? "You can update description, time, status and links"
+      : "Fill in the details — you'll be auto-assigned";
 
   return (
     <div
       style={{
         position: "fixed", inset: 0, background: "rgba(79,50,130,0.18)",
         backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
-        justifyContent: "center", zIndex: 50, padding: "16px"
+        justifyContent: "center", zIndex: 50, padding: "16px",
       }}
       onClick={onClose}
     >
@@ -115,7 +252,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           borderRadius: "22px", width: "100%", maxWidth: "500px",
           border: "1px solid rgba(196,181,253,0.25)",
           boxShadow: "0 24px 64px rgba(109,40,217,0.12), 0 0 0 1px rgba(255,255,255,0.8)",
-          maxHeight: "90vh", overflowY: "auto"
+          maxHeight: "90vh", overflowY: "auto",
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -125,15 +262,13 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           padding: "20px 24px 16px",
           borderBottom: "1px solid rgba(196,181,253,0.15)",
           background: "linear-gradient(135deg, rgba(250,245,255,0.8), rgba(238,242,255,0.4))",
-          position: "sticky", top: 0, zIndex: 1, borderRadius: "22px 22px 0 0"
+          position: "sticky", top: 0, zIndex: 1, borderRadius: "22px 22px 0 0",
         }}>
           <div>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
               {isEdit ? "Edit task" : "Create new task"}
             </h2>
-            <p style={{ fontSize: "12px", color: "#a78bfa", margin: "2px 0 0" }}>
-              {isAdmin ? "Admin — full access" : "Update task "}
-            </p>
+            <p style={{ fontSize: "12px", color: "#a78bfa", margin: "2px 0 0" }}>{subtitle}</p>
           </div>
           <button
             onClick={onClose}
@@ -141,11 +276,9 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               width: "28px", height: "28px", borderRadius: "8px",
               background: "rgba(196,181,253,0.15)", border: "1px solid rgba(196,181,253,0.25)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "#a78bfa", fontSize: "16px"
+              cursor: "pointer", color: "#a78bfa", fontSize: "16px",
             }}
-          >
-            ×
-          </button>
+          >×</button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -153,154 +286,160 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
             <div style={{
               padding: "11px 14px", background: "rgba(254,242,242,0.8)",
               border: "1px solid rgba(252,165,165,0.4)", borderRadius: "11px",
-              fontSize: "13px", color: "#be123c"
+              fontSize: "13px", color: "#be123c",
             }}>
               {error}
             </div>
           )}
 
-          {/* Title */}
+          {/* ── Title ─────────────────────────────────────────── */}
           <div>
             <Label required>Title</Label>
             <input
               type="text"
               required
-              disabled={!isAdmin}
+              disabled={!canEdit("title")}
               value={form.title}
               onChange={e => handle("title", e.target.value)}
               placeholder="Task title"
-              style={inputStyle(!isAdmin)}
-              onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+              style={inputStyle(!canEdit("title"))}
+              onFocus={e => { if (canEdit("title")) e.target.style.borderColor = "#c084fc"; }}
               onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
           </div>
 
-          {/* Description */}
+          {/* ── Description ───────────────────────────────────── */}
           <div>
             <Label>Description</Label>
             <textarea
-              disabled={false}
+              disabled={!canEdit("description")}
               value={form.description}
               onChange={e => handle("description", e.target.value)}
               rows={3}
               placeholder="Optional description…"
-              style={{ ...inputStyle(!isAdmin), resize: "none", lineHeight: 1.6 }}
-              onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+              style={{ ...inputStyle(!canEdit("description")), resize: "none", lineHeight: 1.6 }}
+              onFocus={e => { if (canEdit("description")) e.target.style.borderColor = "#c084fc"; }}
               onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
           </div>
 
-          {/* Assigned to — admin only */}
+          {/* ── Assigned to — Admin: full multi-select ────────── */}
           {isAdmin && (
             <div>
               <Label required>Assigned to</Label>
-              <div style={{ position: "relative" }}>
-                <select
-                  required
-                  value={form.assignedTo}
-                  onChange={e => handle("assignedTo", e.target.value)}
-                  style={{ ...inputStyle(false), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
-                  onFocus={e => e.target.style.borderColor = "#c084fc"}
-                  onBlur={e => e.target.style.borderColor = "#e5e7eb"}
-                >
-                  <option value="">Select a team member</option>
-                  {users.map(u => (
-                    <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
-                <svg style={{ position: "absolute", right: "11px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 3.5L5 6.5L8 3.5" stroke="#a78bfa" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 8px" }}>
+                Select one or more team members
+              </p>
+              <MemberPicker
+                users={users}
+                selectedIds={form.assignedTo}
+                onToggle={toggleAssignee}
+              />
+            </div>
+          )}
+
+          {/* ── Also assign to — Member creating ──────────────── */}
+          {!isAdmin && !isEdit && (
+            <div>
+              <Label>Also assign to</Label>
+              <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 8px" }}>
+                You're auto-assigned. Optionally add teammates too.
+              </p>
+              <MemberPicker
+                users={users}
+                selectedIds={form.assignedTo}
+                onToggle={toggleAssignee}
+                excludeIds={[user?._id]}
+              />
+            </div>
+          )}
+
+          {/* ── Priority ──────────────────────────────────────── */}
+          {canEdit("priority") && (
+            <div>
+              <Label>Priority</Label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {PRIORITIES.map(({ val, dot, bg, activeBorder, activeText }) => {
+                  const isActive = form.priority === val;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => handle("priority", val)}
+                      style={{
+                        flex: 1, padding: "8px 0", borderRadius: "10px",
+                        background: isActive ? bg : "rgba(249,250,251,0.6)",
+                        border: isActive ? `1.5px solid ${activeBorder}` : "1.5px solid #e5e7eb",
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                        fontSize: "12px", fontWeight: isActive ? 600 : 400,
+                        color: isActive ? activeText : "#9ca3af",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: dot, display: "inline-block", flexShrink: 0 }} />
+                      {val}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Priority picker */}
-          <div>
-            <Label>Priority</Label>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {PRIORITIES.map(({ val, dot, bg, activeBorder, activeText }) => {
-                const isActive = form.priority === val;
-                return (
-                  <button
-                    key={val}
-                    type="button"
-                    disabled={!isAdmin}
-                    onClick={() => handle("priority", val)}
-                    style={{
-                      flex: 1, padding: "8px 0", borderRadius: "10px",
-                      background: isActive ? bg : "rgba(249,250,251,0.6)",
-                      border: isActive ? `1.5px solid ${activeBorder}` : "1.5px solid #e5e7eb",
-                      cursor: isAdmin ? "pointer" : "not-allowed",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                      fontSize: "12px", fontWeight: isActive ? 600 : 400,
-                      color: isActive ? activeText : "#9ca3af",
-                      transition: "all 0.15s", opacity: !isAdmin ? 0.5 : 1
-                    }}
-                  >
-                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: dot, display: "inline-block", flexShrink: 0 }} />
-                    {val}
-                  </button>
-                );
-              })}
+          {/* ── Category ──────────────────────────────────────── */}
+          {canEdit("category") && (
+            <div>
+              <Label>Category</Label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => handle("category", "")}
+                  style={{
+                    padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
+                    border: !form.category ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
+                    background: !form.category ? "rgba(233,213,255,0.4)" : "transparent",
+                    color: !form.category ? "#7c3aed" : "#9ca3af",
+                    cursor: "pointer", fontWeight: !form.category ? 600 : 400, transition: "all 0.15s",
+                  }}
+                >
+                  None
+                </button>
+                {settings.categories.map(cat => {
+                  const isActive = form.category === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => handle("category", cat)}
+                      style={{
+                        padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
+                        border: isActive ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
+                        background: isActive ? "rgba(233,213,255,0.4)" : "transparent",
+                        color: isActive ? "#7c3aed" : "#9ca3af",
+                        cursor: "pointer", fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Category */}
-          <div>
-            <Label>Category</Label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-              <button
-                type="button"
-                disabled={!isAdmin}
-                onClick={() => handle("category", "")}
-                style={{
-                  padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
-                  border: !form.category ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
-                  background: !form.category ? "rgba(233,213,255,0.4)" : "transparent",
-                  color: !form.category ? "#7c3aed" : "#9ca3af",
-                  cursor: isAdmin ? "pointer" : "not-allowed", fontWeight: !form.category ? 600 : 400,
-                  opacity: !isAdmin ? 0.5 : 1, transition: "all 0.15s"
-                }}
-              >
-                None
-              </button>
-              {CATEGORIES.map(cat => {
-                const isActive = form.category === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    disabled={!isAdmin}
-                    onClick={() => handle("category", cat)}
-                    style={{
-                      padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
-                      border: isActive ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
-                      background: isActive ? "rgba(233,213,255,0.4)" : "transparent",
-                      color: isActive ? "#7c3aed" : "#9ca3af",
-                      cursor: isAdmin ? "pointer" : "not-allowed", fontWeight: isActive ? 600 : 400,
-                      opacity: !isAdmin ? 0.5 : 1, transition: "all 0.15s"
-                    }}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Due date + Estimated time */}
+          {/* ── Schedule date + Estimated time ────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <Label required>Due date</Label>
+              <Label required={canEdit("dueDate")}>Task Deadline</Label>
               <input
                 type="date"
-                required
-                disabled={!isAdmin}
+                required={canEdit("dueDate")}
+                disabled={!canEdit("dueDate")}
+                min={new Date().toISOString().split("T")[0]}
                 value={form.dueDate}
                 onChange={e => handle("dueDate", e.target.value)}
-                style={inputStyle(!isAdmin)}
-                onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+                style={inputStyle(!canEdit("dueDate"))}
+                onFocus={e => { if (canEdit("dueDate")) e.target.style.borderColor = "#c084fc"; }}
                 onBlur={e => e.target.style.borderColor = "#e5e7eb"}
               />
             </div>
@@ -309,35 +448,50 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               <input
                 type="number"
                 min={1}
-                disabled={false}
+                disabled={!canEdit("estimatedTime")}
                 value={form.estimatedTime}
                 onChange={e => handle("estimatedTime", e.target.value)}
                 placeholder="e.g. 90"
-                style={inputStyle(!isAdmin)}
-                onFocus={e => { if (isAdmin) e.target.style.borderColor = "#c084fc"; }}
+                style={inputStyle(!canEdit("estimatedTime"))}
+                onFocus={e => { if (canEdit("estimatedTime")) e.target.style.borderColor = "#c084fc"; }}
                 onBlur={e => e.target.style.borderColor = "#e5e7eb"}
               />
             </div>
           </div>
 
-          {/* Status */}
+          {/* Multi-day hint */}
+          {canEdit("estimatedTime") && (
+            <div style={{
+              padding: "10px 14px", borderRadius: "10px",
+              background: "rgba(238,242,255,0.6)", border: "1px solid rgba(196,181,253,0.25)",
+              fontSize: "12px", color: "#6366f1", lineHeight: 1.6,
+            }}>
+              💡 <strong>Multi-day tasks:</strong> Every 480 min = 1 full working day. e.g. 960 min = 2 days on the calendar.
+            </div>
+          )}
+
+          {/* ── Status ────────────────────────────────────────── */}
           <div>
             <Label>Status</Label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "6px" }}>
-              {STATUSES.map(s => {
-                const sc = statusColors[s];
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {settings.statuses.map(s => {
+                const sc       = statusColors[s] || { bg: "rgba(233,213,255,0.4)", text: "#7c3aed", activeBorder: "#c084fc" };
                 const isActive = form.status === s;
                 return (
                   <button
                     key={s}
                     type="button"
-                    onClick={() => handle("status", s)}
+                    disabled={!canEdit("status")}
+                    onClick={() => canEdit("status") && handle("status", s)}
                     style={{
-                      padding: "7px 4px", borderRadius: "10px", fontSize: "11px", fontWeight: isActive ? 600 : 400,
+                      padding: "6px 12px", borderRadius: "10px", fontSize: "11px",
+                      fontWeight: isActive ? 600 : 400,
                       background: isActive ? sc.bg : "rgba(249,250,251,0.6)",
                       border: isActive ? `1.5px solid ${sc.activeBorder}` : "1.5px solid #e5e7eb",
                       color: isActive ? sc.text : "#9ca3af",
-                      cursor: "pointer", transition: "all 0.15s", textAlign: "center"
+                      cursor: canEdit("status") ? "pointer" : "not-allowed",
+                      opacity: canEdit("status") ? 1 : 0.5,
+                      transition: "all 0.15s", textAlign: "center",
                     }}
                   >
                     {s}
@@ -347,7 +501,138 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* ── Files & Attachments ───────────────────────────── */}
+          <div>
+            <Label>Files & Attachments</Label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {form.attachments.map((file, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "8px 12px", background: "rgba(233,213,255,0.25)",
+                  border: "1px solid rgba(196,181,253,0.3)", borderRadius: "10px",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden" }}>
+                    <span style={{ fontSize: "16px" }}>{file.fileType === "file" ? "📄" : "🔗"}</span>
+                    <span style={{ fontSize: "13px", color: "#4b5563", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {file.name}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handle("attachments", form.attachments.filter((_, idx) => idx !== i))}
+                    style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: "14px" }}
+                  >×</button>
+                </div>
+              ))}
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    placeholder="Link URL (https://...)"
+                    value={newLink.url}
+                    onChange={e => setNewLink({ ...newLink, url: e.target.value })}
+                    style={{ ...inputStyle(false), flex: 2, fontSize: "12px" }}
+                  />
+                  <input
+                    placeholder="Tiny name (optional)"
+                    value={newLink.name}
+                    onChange={e => setNewLink({ ...newLink, name: e.target.value })}
+                    style={{ ...inputStyle(false), flex: 1, fontSize: "12px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newLink.url) return;
+                      handle("attachments", [...form.attachments, { 
+                        name: newLink.name || newLink.url, 
+                        url: newLink.url, 
+                        fileType: "link" 
+                      }]);
+                      setNewLink({ name: "", url: "" });
+                    }}
+                    style={{
+                      padding: "8px 16px", borderRadius: "10px",
+                      background: "#7c3aed", color: "white", border: "none",
+                      fontSize: "12px", fontWeight: 600, cursor: "pointer"
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <label style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  padding: "10px", borderRadius: "12px", border: "1.5px dashed rgba(196,181,253,0.5)",
+                  background: "rgba(250,245,255,0.4)", color: "#7c3aed", fontSize: "12px",
+                  fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
+                }}>
+                  <span>📎 Upload File (Reference)</span>
+                  <input
+                    type="file"
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      try {
+                        const res = await api.post("/tasks/upload", formData);
+                        handle("attachments", [...form.attachments, res.data]);
+                      } catch (err) {
+                        setError("Failed to upload file");
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Share with teammates (member editing only) ────── */}
+          {!isAdmin && isEdit && (
+            <div style={{
+              padding: "16px", borderRadius: "14px",
+              background: "rgba(250,245,255,0.6)", border: "1px solid rgba(196,181,253,0.25)",
+            }}>
+              <Label>Share with teammates</Label>
+              <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 10px" }}>
+                Add members to this task — they'll see it on their calendar too
+              </p>
+              <MemberPicker
+                users={users}
+                selectedIds={shareIds}
+                onToggle={toggleShareId}
+                excludeIds={currentAssigneeIds}
+              />
+              {shareMsg && (
+                <p style={{
+                  fontSize: "12px", margin: "10px 0 0", fontWeight: 500,
+                  color: shareMsg.startsWith("✓") ? "#10b981" : "#ef4444",
+                }}>
+                  {shareMsg}
+                </p>
+              )}
+              {shareIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  disabled={sharing}
+                  style={{
+                    marginTop: "12px", padding: "8px 18px", borderRadius: "10px",
+                    fontSize: "13px", fontWeight: 600,
+                    background: "linear-gradient(135deg, #c084fc, #818cf8)",
+                    border: "none", color: "white",
+                    cursor: sharing ? "not-allowed" : "pointer",
+                    opacity: sharing ? 0.7 : 1, transition: "opacity 0.15s", fontFamily: "inherit",
+                  }}
+                >
+                  {sharing ? "Sharing…" : `Share with ${shareIds.length} member${shareIds.length > 1 ? "s" : ""}`}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Actions ───────────────────────────────────────── */}
           <div style={{ display: "flex", gap: "10px", paddingTop: "4px" }}>
             <button
               type="button"
@@ -355,7 +640,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               style={{
                 flex: 1, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 500,
                 background: "transparent", border: "1px solid rgba(196,181,253,0.35)",
-                color: "#9ca3af", cursor: "pointer", transition: "all 0.15s"
+                color: "#9ca3af", cursor: "pointer", transition: "all 0.15s",
               }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(233,213,255,0.2)"; e.currentTarget.style.color = "#7c3aed"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#9ca3af"; }}
@@ -364,15 +649,17 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!isAdmin && isEdit && shareIds.length > 0)}
+              title={(!isAdmin && isEdit && shareIds.length > 0) ? "Please click 'Share' or clear selection first" : ""}
               style={{
                 flex: 2, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 600,
-                background: loading ? "#d8b4fe" : "linear-gradient(135deg,#c084fc,#818cf8)",
-                border: "none", color: "white", cursor: loading ? "not-allowed" : "pointer",
-                boxShadow: "0 4px 12px rgba(139,92,246,0.25)", transition: "opacity 0.15s"
+                background: (loading || (!isAdmin && isEdit && shareIds.length > 0)) ? "#e9d5ff" : "linear-gradient(135deg,#c084fc,#818cf8)",
+                border: "none", color: "white", cursor: (loading || (!isAdmin && isEdit && shareIds.length > 0)) ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 12px rgba(139,92,246,0.25)", transition: "opacity 0.15s",
+                opacity: (loading || (!isAdmin && isEdit && shareIds.length > 0)) ? 0.6 : 1,
               }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = "0.88"; }}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+              onMouseEnter={e => { if (!loading && (isAdmin || !isEdit || shareIds.length === 0)) e.currentTarget.style.opacity = "0.88"; }}
+              onMouseLeave={e => { if (!loading && (isAdmin || !isEdit || shareIds.length === 0)) e.currentTarget.style.opacity = "1"; }}
             >
               {loading ? "Saving…" : isEdit ? "Save changes" : "Create task"}
             </button>

@@ -25,6 +25,12 @@ const calendarEventSchema = new mongoose.Schema(
       required: true
     },
 
+    // Multi-day support: if endDate differs from date, the event spans multiple days.
+    // When absent, the event is single-day (endDate === date).
+    endDate: {
+      type: Date
+    },
+
     startTime: {
       type: String,
       required: true // e.g. "09:00"
