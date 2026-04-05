@@ -1,6 +1,45 @@
 import Task from "../models/Task.js";
 import CalendarEvent from "../models/CalendarEvent.js";
-import autoSchedule from "../utils/autoScheduler.js";
+import autoSchedule, { calculateTaskSchedule } from "../utils/autoScheduler.js";
+import dayjs from "dayjs";
+
+/**
+ * Check for scheduling conflicts (overlapping CalendarEvents)
+ */
+async function checkConflicts(userIds, startDate, endDate, excludeTaskId = null) {
+  if (!startDate || !endDate) return null;
+  
+  const start = new Date(startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setUTCHours(0, 0, 0, 0);
+  
+  // If single day, extend end to next day to catch same-day events
+  if (start.getTime() === end.getTime()) {
+    end.setUTCDate(end.getUTCDate() + 1);
+  } else {
+    // inclusive of the end day
+    end.setUTCDate(end.getUTCDate() + 1);
+  }
+
+  const filter = {
+    user: { $in: userIds },
+    $or: [
+      { date: { $lt: end }, endDate: { $gte: start } },
+    ]
+  };
+  
+  if (excludeTaskId) {
+    filter.task = { $ne: excludeTaskId };
+  }
+  
+  const existingEvents = await CalendarEvent.find(filter).populate("task", "title");
+  if (existingEvents.length > 0) {
+    const conflict = existingEvents[0];
+    return `Potential conflict: "${conflict.task?.title}" already exists for this time slot.`;
+  }
+  return null;
+}
 
 /*
  Create Task
@@ -46,10 +85,25 @@ export const createTask = async (req, res) => {
       body.attachments = [body.attachments];
     }
 
+    // CONFIGURE: dry-run schedule to check for conflicts before creation
+    const dryRun = calculateTaskSchedule(body);
+    const conflictWarning = await checkConflicts(
+      body.assignedTo || [req.user.id],
+      body.startDate  || dryRun.scheduledDate,
+      body.endDate    || dryRun.endDate
+    );
+
+    if (conflictWarning && String(req.body.force) !== "true") {
+      return res.status(409).json({ 
+        message: "Conflict detected", 
+        conflictWarning,
+        isConflict: true 
+      });
+    }
     const task = await Task.create(body);
     await autoSchedule(task);
 
-    res.status(201).json(task);
+    res.status(201).json({ ...task.toObject(), conflictWarning });
   } catch (error) {
     res.status(500).json({ message: "Failed to create task", error: error.message });
   }
@@ -72,12 +126,23 @@ export const getTasks = async (req, res) => {
     } = req.query;
 
     const filter = {};
+    if (req.user.role !== "admin") {
+      filter.$or = [
+        { createdBy: req.user.id },
+        { assignedTo: req.user.id }
+      ];
+    }
 
-    // All roles can see all tasks; filter by assignedTo if provided
-    if (assignedTo) filter.assignedTo = assignedTo;
-    if (status) filter.status = status;
-    if (priority) filter.priority = priority;
-    if (category) filter.category = category;
+    // Existing filters are now merged into the main filter object
+    const andConditions = [];
+    if (assignedTo) andConditions.push({ assignedTo });
+    if (status) andConditions.push({ status });
+    if (priority) andConditions.push({ priority });
+    if (category) andConditions.push({ category });
+
+    if (andConditions.length > 0) {
+      filter.$and = filter.$and ? [...filter.$and, ...andConditions] : andConditions;
+    }
 
     if (dueDateFrom || dueDateTo) {
       filter.dueDate = {};
@@ -126,7 +191,17 @@ export const getTaskById = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    // All roles can view any task
+    // Visibility check: createdBy or assignedTo
+    if (req.user.role !== "admin") {
+      const assignedIds = task.assignedTo.map(id => (id._id || id).toString());
+      const isCreator = task.createdBy.toString() === req.user.id.toString();
+      const isAssigned = assignedIds.includes(req.user.id.toString());
+
+      if (!isCreator && !isAssigned) {
+        return res.status(403).json({ message: "Not allowed to view this task" });
+      }
+    }
+
     res.status(200).json(task);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch task", error: error.message });
@@ -152,19 +227,19 @@ export const updateTask = async (req, res) => {
         return res.status(403).json({ message: "Not allowed to update this task" });
       }
 
-      // Members can update status, description, estimatedTime, and attachments on their own tasks
-      const allowedFields = ["status", "description", "estimatedTime", "attachments"];
+      // Members can update status, description, estimatedTime, startDate, endDate, and attachments on their own tasks
+      const allowedFields = ["status", "description", "estimatedTime", "attachments", "startDate", "endDate"];
       allowedFields.forEach(field => {
         if (req.body[field] !== undefined) task[field] = req.body[field];
       });
 
       await task.save();
 
-      // If estimatedTime changed, refresh the calendar slot duration
+      // If estimatedTime or dates changed, refresh the calendar slot
       const timeChanged = req.body.estimatedTime !== undefined && Number(req.body.estimatedTime) !== task.estimatedTime;
-      if (timeChanged) {
+      const datesChanged = req.body.startDate !== undefined || req.body.endDate !== undefined;
+      if (timeChanged || datesChanged) {
         try {
-          // Note: Members don't change dueDate, so we just refresh for the new duration
           await CalendarEvent.deleteMany({ task: task._id });
           await autoSchedule(task);
         } catch (e) {
@@ -203,11 +278,29 @@ export const updateTask = async (req, res) => {
     const newAssignees = (req.body.assignedTo || []).map(id => id.toString()).sort().join(",");
     const assignedToChanged = req.body.assignedTo !== undefined && oldAssignees !== newAssignees;
 
-    const needsReschedule = priorityChanged || dueDateChanged || estimatedTimeChanged || assignedToChanged;
+    const needsReschedule = priorityChanged || dueDateChanged || estimatedTimeChanged || assignedToChanged ||
+                            req.body.startDate !== undefined || req.body.endDate !== undefined;
+
+    // CONFIGURE: dry-run schedule to check for conflicts before update
+    const dryRun = calculateTaskSchedule({ ...task.toObject(), ...body });
+    const conflictWarning = await checkConflicts(
+      body.assignedTo  || task.assignedTo,
+      body.startDate   || task.startDate || dryRun.scheduledDate,
+      body.endDate     || task.endDate   || dryRun.endDate,
+      task._id
+    );
+
+    if (conflictWarning && String(req.body.force) !== "true") {
+      return res.status(409).json({ 
+        message: "Conflict detected", 
+        conflictWarning,
+        isConflict: true 
+      });
+    }
 
     Object.assign(task, body);
     await task.save();
-    
+
     if (needsReschedule) {
       try {
         await CalendarEvent.deleteMany({ task: task._id });
@@ -217,7 +310,7 @@ export const updateTask = async (req, res) => {
       }
     }
 
-    res.status(200).json(task);
+    res.status(200).json({ ...task.toObject(), conflictWarning });
   } catch (error) {
     console.error("[updateTask] OUTER CATCH:", error.message, error.stack);
     res.status(500).json({ message: "Failed to update task", error: error.message });

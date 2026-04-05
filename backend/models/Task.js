@@ -43,6 +43,14 @@ const taskSchema = new mongoose.Schema(
       required: true
     },
 
+    startDate: {
+      type: Date
+    },
+
+    endDate: {
+      type: Date
+    },
+
     estimatedTime: {
       type: Number, // minutes
       min: 1
@@ -101,6 +109,8 @@ taskSchema.virtual("isOverdue").get(function () {
 taskSchema.index({ assignedTo: 1, status: 1 });
 taskSchema.index({ assignedTo: 1, dueDate: 1 });
 taskSchema.index({ dueDate: 1 });
+taskSchema.index({ startDate: 1 });
+taskSchema.index({ endDate: 1 });
 taskSchema.index({ scheduledDate: 1 });
 
 const Task = mongoose.model("Task", taskSchema);

@@ -7,8 +7,10 @@ import Layout from "../../components/Layout";
 import TaskFormModal from "../../components/TaskFormModal";
 import TaskDetailModal from "../../components/TaskDetailModal";
 import useCalendarEvents from "../../hooks/useCalendarEvents";
+import useTasks from "../../hooks/useTasks";
 import useSettings from "../../hooks/useSettings";
 import api from "../../api/axios";
+import TaskCard from "../../components/TaskCard";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useAuth } from "../../context/AuthContext";
@@ -85,8 +87,19 @@ export default function CalendarPage() {
   const endDate   = dayjs(date).endOf("month").add(7, "day").toISOString();
 
   const { events, loading, error, refetch } = useCalendarEvents(startDate, endDate);
+  const { tasks, refetch: refetchTasks } = useTasks({ limit: 20 });
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+
+  const handleToggleStatus = async (taskId, newStatus) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      refetchTasks();
+      refetch();
+    } catch (err) {
+      console.error("Failed to toggle status", err);
+    }
+  };
 
   const eventStyleGetter = useCallback((event) => {
     const priority = event.resource?.task?.priority;
@@ -230,35 +243,60 @@ export default function CalendarPage() {
           </span>
         </div>
 
-        {/* Calendar */}
-        <div style={{
-          background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)",
-          border: "1px solid rgba(196,181,253,0.18)", borderRadius: "20px",
-          padding: "24px", boxShadow: "0 4px 24px rgba(139,92,246,0.06)",
-        }}>
-          {loading ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-              <div style={{ width: "32px", height: "32px", borderRadius: "50%", border: "3px solid #e9d5ff", borderTopColor: "#a78bfa", animation: "spin 0.7s linear infinite" }} />
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {/* Main Content Area: Calendar + Sidebar */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "24px" }}>
+          {/* Calendar */}
+          <div style={{
+            background: "rgba(255,255,255,0.88)", backdropFilter: "blur(12px)",
+            border: "1px solid rgba(196,181,253,0.18)", borderRadius: "20px",
+            padding: "24px", boxShadow: "0 4px 24px rgba(139,92,246,0.06)",
+          }}>
+            {loading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+                <div style={{ width: "32px", height: "32px", borderRadius: "50%", border: "3px solid #e9d5ff", borderTopColor: "#a78bfa", animation: "spin 0.7s linear infinite" }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              </div>
+            ) : (
+              <DnDCalendar
+                localizer={localizer}
+                events={events}
+                view={view}
+                date={date}
+                onView={setView}
+                onNavigate={setDate}
+                onSelectEvent={handleSelectEvent}
+                onEventDrop={handleEventDrop}
+                onEventResize={handleEventResize}
+                eventPropGetter={eventStyleGetter}
+                draggableAccessor={isDraggable}
+                resizable
+                style={{ height: 580 }}
+                views={["month", "week", "day"]}
+              />
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 700, color: "#1e1b4b", margin: "0 0 4px" }}>My Tasks</h3>
+            <div style={{ 
+              display: "flex", flexDirection: "column", gap: "12px", 
+              maxHeight: "600px", overflowY: "auto", paddingRight: "8px" 
+            }}>
+              {tasks.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "#9ca3af", textAlign: "center", padding: "20px" }}>No tasks found</p>
+              ) : (
+                tasks.map(task => (
+                  <TaskCard 
+                    key={task._id} 
+                    task={task} 
+                    onClick={() => setDetailTask(task)} 
+                    onToggle={handleToggleStatus}
+                  />
+                ))
+              )}
             </div>
-          ) : (
-            <DnDCalendar
-              localizer={localizer}
-              events={events}
-              view={view}
-              date={date}
-              onView={setView}
-              onNavigate={setDate}
-              onSelectEvent={handleSelectEvent}
-              onEventDrop={handleEventDrop}
-              onEventResize={handleEventResize}
-              eventPropGetter={eventStyleGetter}
-              draggableAccessor={isDraggable}
-              resizable
-              style={{ height: 580 }}
-              views={["month", "week", "day"]}
-            />
-          )}
+          </div>
         </div>
       </div>
 

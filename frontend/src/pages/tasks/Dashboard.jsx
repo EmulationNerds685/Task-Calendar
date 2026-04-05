@@ -7,6 +7,7 @@ import TaskFormModal from "../../components/TaskFormModal";
 import TaskDetailModal from "../../components/TaskDetailModal";
 import useTasks from "../../hooks/useTasks";
 import dayjs from "dayjs";
+import api from "../../api/axios";
 
 const KANBAN_COLUMNS = ["Not Started", "In Progress", "Completed", "Overdue"];
 
@@ -80,11 +81,10 @@ const summaryCards = [
 ];
 
 // CHANGE #1: Table row component for list view
-function TableRow({ task, onClick }) {
+function TableRow({ task, onClick, onToggle }) {
   const pc = priorityConfig[task.priority] || priorityConfig.Medium;
   const sc = statusConfig[task.status] || statusConfig["Not Started"];
 
-  // CHANGE #3: multi-assignee
   const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : task.assignedTo ? [task.assignedTo] : [];
   const assigneeNames = assignees.map(a => a?.name || "").filter(Boolean).join(", ") || "—";
 
@@ -95,6 +95,18 @@ function TableRow({ task, onClick }) {
       onMouseEnter={e => e.currentTarget.style.background = "rgba(233,213,255,0.12)"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
+      <td style={{ padding: "12px 0 12px 14px", width: "40px", textAlign: "center" }}>
+        <input
+          type="checkbox"
+          checked={task.status === "Completed"}
+          onClick={(e) => e.stopPropagation()}
+          onChange={async (e) => {
+            e.stopPropagation();
+            onToggle?.(task._id, task.status === "Completed" ? "Not Started" : "Completed");
+          }}
+          style={{ cursor: "pointer", width: "16px", height: "16px", accentColor: "#7c3aed" }}
+        />
+      </td>
       {/* Title */}
       <td style={{ padding: "12px 14px", fontSize: "13px", fontWeight: 600, color: "#1f2937", maxWidth: "240px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -167,6 +179,15 @@ export default function Dashboard() {
   const [editTask, setEditTask] = useState(null);
 
   const { tasks, pagination, loading, error, refetch } = useTasks({ ...filters, page, limit: 10 });
+
+  const handleToggleStatus = async (taskId, newStatus) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      refetch();
+    } catch (err) {
+      console.error("Failed to toggle status", err);
+    }
+  };
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -308,7 +329,7 @@ export default function Dashboard() {
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "14px" }}>
               {tasks.map(task => (
-                <TaskCard key={task._id} task={task} onClick={() => setSelectedTask(task)} />
+                <TaskCard key={task._id} task={task} onClick={() => setSelectedTask(task)} onToggle={handleToggleStatus} />
               ))}
             </div>
             <Pagination page={page} pagination={pagination} setPage={setPage} />
@@ -326,6 +347,7 @@ export default function Dashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(196,181,253,0.2)", background: "rgba(250,245,255,0.5)" }}>
+                      <th style={{ width: "40px" }}></th>
                       {["Title", "Assignee", "Priority", "Status", "Deadline", "Scheduled slot"].map((h, i) => (
                         <th key={h} style={{
                           padding: "12px 14px",
@@ -341,7 +363,7 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {tasks.map(task => (
-                      <TableRow key={task._id} task={task} onClick={() => setSelectedTask(task)} />
+                      <TableRow key={task._id} task={task} onClick={() => setSelectedTask(task)} onToggle={handleToggleStatus} />
                     ))}
                   </tbody>
                 </table>
@@ -381,7 +403,7 @@ export default function Dashboard() {
                       <p style={{ fontSize: "12px", color: "#d1d5db", textAlign: "center", padding: "20px 0" }}>Empty</p>
                     ) : (
                       colTasks.map(task => (
-                        <TaskCard key={task._id} task={task} onClick={() => setSelectedTask(task)} />
+                        <TaskCard key={task._id} task={task} onClick={() => setSelectedTask(task)} onToggle={handleToggleStatus} />
                       ))
                     )}
                   </div>

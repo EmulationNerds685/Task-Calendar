@@ -133,6 +133,21 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDeleted }) {
             )}
           </div>
 
+          {task.startDate && (!task.dueDate || !dayjs(task.startDate).startOf('day').isSame(dayjs(task.dueDate).startOf('day')) || (task.endDate && !dayjs(task.endDate).startOf('day').isSame(dayjs(task.startDate).startOf('day')))) && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 600, color: "#c4b5fd", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Start Date</p>
+              <p style={{ fontSize: "13px", color: "#4b5563", margin: 0, fontWeight: 500 }}>{dayjs(task.startDate).format("MMM D, YYYY")}</p>
+            </div>
+            {task.endDate && (
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: 600, color: "#c4b5fd", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>End Date</p>
+                <p style={{ fontSize: "13px", color: "#4b5563", margin: 0, fontWeight: 500 }}>{dayjs(task.endDate).format("MMM D, YYYY")}</p>
+              </div>
+            )}
+          </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             {task.dueDate && (
               <div>

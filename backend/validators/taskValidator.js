@@ -33,7 +33,14 @@ export const createTaskSchema = z.object({
     name: z.string(),
     url: z.string(),
     fileType: z.enum(["link", "file"])
-  })).optional()
+  })).optional(),
+  force: z.union([z.boolean(), z.string()]).optional(),
+  startDate: z.string().optional().refine((val) => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format"
+  }),
+  endDate: z.string().optional().refine((val) => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format"
+  })
 });
 
 export const updateTaskSchema = z.object({
@@ -61,5 +68,12 @@ export const updateTaskSchema = z.object({
     name: z.string(),
     url: z.string(),
     fileType: z.enum(["link", "file"])
-  })).optional()
+  })).optional(),
+  force: z.union([z.boolean(), z.string()]).optional(),
+  startDate: z.string().optional().refine((val) => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format"
+  }),
+  endDate: z.string().optional().refine((val) => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format"
+  })
 });

@@ -36,8 +36,12 @@ router.patch("/:eventId", verifyToken, async (req, res) => {
       updateFields
     );
 
-    // Keep task.scheduledDate in sync 
-    await Task.findByIdAndUpdate(event.task._id, { scheduledDate: req.body.date });
+    // Keep task dates in sync 
+    const taskUpdate = { scheduledDate: req.body.date, startDate: req.body.date };
+    if (req.body.endDate !== undefined) {
+      taskUpdate.endDate = req.body.endDate;
+    }
+    await Task.findByIdAndUpdate(event.task._id, taskUpdate);
 
     const updatedEvent = await CalendarEvent.findById(req.params.eventId);
     res.json(updatedEvent);

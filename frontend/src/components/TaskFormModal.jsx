@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import dayjs from "dayjs";
 import api from "../api/axios";
 import useUsers from "../hooks/useUsers";
 import useSettings from "../hooks/useSettings";
+import ConflictToast from "./ConflictToast";
 
 // Fields a member can set when creating their own task
-const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments"];
+const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments", "force", "startDate", "endDate"];
 // Fields a member can change on an existing task
-const MEMBER_EDITABLE_UPDATE = ["description", "estimatedTime", "status", "referenceLinks", "dueDate", "attachments"];
+const MEMBER_EDITABLE_UPDATE = ["description", "estimatedTime", "status", "referenceLinks", "dueDate", "attachments", "force", "startDate", "endDate"];
 
 const EMPTY_FORM = {
   title:          "",
@@ -15,8 +17,10 @@ const EMPTY_FORM = {
   assignedTo:     [],
   priority:       "Medium",
   category:       "",
+  startDate:      "",
+  endDate:        "",
   dueDate:        "",
-  estimatedTime:  "",
+  estimatedTime:  "90",
   status:         "Not Started",
   referenceLinks: "",
   attachments:    [],
@@ -110,8 +114,10 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
   const isAdmin      = user?.role === "admin";
 
   const [form, setForm]       = useState(EMPTY_FORM);
-  const [error, setError]     = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError]             = useState("");
+  const [conflictWarning, setConflict] = useState("");
+  const [showConflictConfirm, setShowConflictConfirm] = useState(false);
+  const [loading, setLoading]         = useState(false);
 
   // Share state — for members editing a task
   const [shareIds, setShareIds] = useState([]);
@@ -137,8 +143,10 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         assignedTo:     assignedIds,
         priority:       task.priority     || "Medium",
         category:       task.category     || "",
+        startDate:      task.startDate ? task.startDate.split("T")[0] : "",
+        endDate:        task.endDate ? task.endDate.split("T")[0] : "",
         dueDate:        task.dueDate ? task.dueDate.split("T")[0] : "",
-        estimatedTime:  task.estimatedTime || "",
+        estimatedTime:  task.estimatedTime || "90",
         status:         task.status       || "Not Started",
         referenceLinks: (task.referenceLinks || []).join("\n"),
         attachments:    task.attachments    || [],
@@ -179,8 +187,51 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
     }
   };
 
+  const performSubmit = async (force = false) => {
+    setLoading(true);
+    try {
+      const payload = {
+        ...form,
+        force,
+        estimatedTime: form.estimatedTime ? Number(form.estimatedTime) : undefined,
+        referenceLinks: form.referenceLinks
+          ? form.referenceLinks.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+          : [],
+      };
+
+      if (!isAdmin) {
+        const allowed = isEdit ? MEMBER_EDITABLE_UPDATE : MEMBER_EDITABLE_CREATE;
+        Object.keys(payload).forEach(k => { if (!allowed.includes(k)) delete payload[k]; });
+      }
+
+      let response;
+      if (isEdit) {
+        response = await api.patch(`/tasks/${task._id}`, payload);
+      } else {
+        response = await api.post("/tasks", payload);
+      }
+
+      onClose();
+      onSaved?.();
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setConflict(err.response.data.conflictWarning || "A scheduling conflict was detected.");
+        setShowConflictConfirm(true);
+        setLoading(false);
+      } else {
+        setLoading(false);
+        setError(
+          err.response?.data?.errors?.[0]?.message ||
+          err.response?.data?.message ||
+          "Something went wrong"
+        );
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
     setError("");
 
     if (isAdmin && !isEdit && form.assignedTo.length === 0) {
@@ -188,38 +239,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
       return;
     }
 
-    setLoading(true);
-    try {
-      const payload = {
-        ...form,
-        estimatedTime: form.estimatedTime ? Number(form.estimatedTime) : undefined,
-        referenceLinks: form.referenceLinks
-          ? form.referenceLinks.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
-          : [],
-      };
-
-      // Members: strip fields they're not allowed to send
-      if (!isAdmin) {
-        const allowed = isEdit ? MEMBER_EDITABLE_UPDATE : MEMBER_EDITABLE_CREATE;
-        Object.keys(payload).forEach(k => { if (!allowed.includes(k)) delete payload[k]; });
-      }
-
-      if (isEdit) {
-        await api.patch(`/tasks/${task._id}`, payload);
-      } else {
-        await api.post("/tasks", payload);
-      }
-      // Close modal FIRST (unmounts component), then refresh parent data
-      onClose();
-      onSaved?.();
-    } catch (err) {
-      setLoading(false);
-      setError(
-        err.response?.data?.errors?.[0]?.message ||
-        err.response?.data?.message ||
-        "Something went wrong"
-      );
-    }
+    performSubmit();
   };
 
   const PRIORITIES = settings.priorities.map(val =>
@@ -291,33 +311,44 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               {error}
             </div>
           )}
+          {conflictWarning && (
+            <div style={{
+              padding: "11px 14px", background: "rgba(255,251,235,0.8)",
+              border: "1px solid rgba(253,211,77,0.4)", borderRadius: "11px",
+              fontSize: "13px", color: "#92400e",
+            }}>
+              ⚠️ {conflictWarning}
+            </div>
+          )}
 
           {/* ── Title ─────────────────────────────────────────── */}
-          <div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <Label required>Title</Label>
             <input
               type="text"
               required
+              name="title"
               disabled={!canEdit("title")}
               value={form.title}
               onChange={e => handle("title", e.target.value)}
               placeholder="Task title"
-              style={inputStyle(!canEdit("title"))}
+              style={{ ...inputStyle(!canEdit("title")), height: "40px" }}
               onFocus={e => { if (canEdit("title")) e.target.style.borderColor = "#c084fc"; }}
               onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
           </div>
 
           {/* ── Description ───────────────────────────────────── */}
-          <div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <Label>Description</Label>
             <textarea
+              name="description"
               disabled={!canEdit("description")}
               value={form.description}
               onChange={e => handle("description", e.target.value)}
               rows={3}
               placeholder="Optional description…"
-              style={{ ...inputStyle(!canEdit("description")), resize: "none", lineHeight: 1.6 }}
+              style={{ ...inputStyle(!canEdit("description")), resize: "none", lineHeight: 1.6, minHeight: "80px" }}
               onFocus={e => { if (canEdit("description")) e.target.style.borderColor = "#c084fc"; }}
               onBlur={e => e.target.style.borderColor = "#e5e7eb"}
             />
@@ -430,6 +461,29 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Schedule date + Estimated time ────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
+              <Label>Start Date</Label>
+              <input
+                type="date"
+                disabled={!canEdit("dueDate")}
+                value={form.startDate}
+                onChange={e => handle("startDate", e.target.value)}
+                style={inputStyle(!canEdit("dueDate"))}
+              />
+            </div>
+            <div>
+              <Label>End Date</Label>
+              <input
+                type="date"
+                disabled={!canEdit("dueDate")}
+                value={form.endDate}
+                onChange={e => handle("endDate", e.target.value)}
+                style={inputStyle(!canEdit("dueDate"))}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div>
               <Label required={canEdit("dueDate")}>Task Deadline</Label>
               <input
                 type="date"
@@ -445,17 +499,16 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
             </div>
             <div>
               <Label>Est. time (min)</Label>
-              <input
-                type="number"
-                min={1}
+              <select
                 disabled={!canEdit("estimatedTime")}
                 value={form.estimatedTime}
                 onChange={e => handle("estimatedTime", e.target.value)}
-                placeholder="e.g. 90"
                 style={inputStyle(!canEdit("estimatedTime"))}
-                onFocus={e => { if (canEdit("estimatedTime")) e.target.style.borderColor = "#c084fc"; }}
-                onBlur={e => e.target.style.borderColor = "#e5e7eb"}
-              />
+              >
+                {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(min => (
+                  <option key={min} value={min}>{min} minutes {min % 60 === 0 ? `(${min / 60}h)` : ""}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -650,7 +703,6 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
             <button
               type="submit"
               disabled={loading || (!isAdmin && isEdit && shareIds.length > 0)}
-              title={(!isAdmin && isEdit && shareIds.length > 0) ? "Please click 'Share' or clear selection first" : ""}
               style={{
                 flex: 2, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 600,
                 background: (loading || (!isAdmin && isEdit && shareIds.length > 0)) ? "#e9d5ff" : "linear-gradient(135deg,#c084fc,#818cf8)",
@@ -666,6 +718,14 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           </div>
         </form>
       </div>
+
+      {showConflictConfirm && (
+        <ConflictToast
+          message={conflictWarning}
+          onConfirm={() => performSubmit(true)}
+          onDismiss={() => setShowConflictConfirm(false)}
+        />
+      )}
 
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&display=swap" rel="stylesheet" />
     </div>
