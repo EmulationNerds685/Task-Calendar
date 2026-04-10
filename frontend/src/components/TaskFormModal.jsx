@@ -7,9 +7,9 @@ import useSettings from "../hooks/useSettings";
 import ConflictToast from "./ConflictToast";
 
 // Fields a member can set when creating their own task
-const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments", "force", "startDate", "endDate"];
+const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments", "force", "startDate"];
 // Fields a member can change on an existing task
-const MEMBER_EDITABLE_UPDATE = ["description", "estimatedTime", "status", "referenceLinks", "dueDate", "attachments", "force", "startDate", "endDate"];
+const MEMBER_EDITABLE_UPDATE = ["description", "estimatedTime", "status", "referenceLinks", "dueDate", "attachments", "force", "startDate"];
 
 const EMPTY_FORM = {
   title:          "",
@@ -18,7 +18,6 @@ const EMPTY_FORM = {
   priority:       "Medium",
   category:       "",
   startDate:      "",
-  endDate:        "",
   dueDate:        "",
   estimatedTime:  "90",
   status:         "Not Started",
@@ -144,7 +143,6 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         priority:       task.priority     || "Medium",
         category:       task.category     || "",
         startDate:      task.startDate ? task.startDate.split("T")[0] : "",
-        endDate:        task.endDate ? task.endDate.split("T")[0] : "",
         dueDate:        task.dueDate ? task.dueDate.split("T")[0] : "",
         estimatedTime:  task.estimatedTime || "90",
         status:         task.status       || "Not Started",
@@ -211,21 +209,19 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         response = await api.post("/tasks", payload);
       }
 
+      if (response.data.deadlineWarning) {
+        alert("⚠️ Heads up!\n" + response.data.deadlineWarning);
+      }
+
       onClose();
       onSaved?.();
     } catch (err) {
-      if (err.response?.status === 409) {
-        setConflict(err.response.data.conflictWarning || "A scheduling conflict was detected.");
-        setShowConflictConfirm(true);
-        setLoading(false);
-      } else {
-        setLoading(false);
-        setError(
-          err.response?.data?.errors?.[0]?.message ||
-          err.response?.data?.message ||
-          "Something went wrong"
-        );
-      }
+      setLoading(false);
+      setError(
+        err.response?.data?.errors?.[0]?.message ||
+        err.response?.data?.message ||
+        "Something went wrong"
+      );
     }
   };
 
@@ -461,40 +457,13 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Schedule date + Estimated time ────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <Label>Start Date</Label>
+              <Label>Start Date (Preferred)</Label>
               <input
                 type="date"
                 disabled={!canEdit("dueDate")}
                 value={form.startDate}
                 onChange={e => handle("startDate", e.target.value)}
                 style={inputStyle(!canEdit("dueDate"))}
-              />
-            </div>
-            <div>
-              <Label>End Date</Label>
-              <input
-                type="date"
-                disabled={!canEdit("dueDate")}
-                value={form.endDate}
-                onChange={e => handle("endDate", e.target.value)}
-                style={inputStyle(!canEdit("dueDate"))}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div>
-              <Label required={canEdit("dueDate")}>Task Deadline</Label>
-              <input
-                type="date"
-                required={canEdit("dueDate")}
-                disabled={!canEdit("dueDate")}
-                min={new Date().toISOString().split("T")[0]}
-                value={form.dueDate}
-                onChange={e => handle("dueDate", e.target.value)}
-                style={inputStyle(!canEdit("dueDate"))}
-                onFocus={e => { if (canEdit("dueDate")) e.target.style.borderColor = "#c084fc"; }}
-                onBlur={e => e.target.style.borderColor = "#e5e7eb"}
               />
             </div>
             <div>
@@ -510,6 +479,21 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <Label required={canEdit("dueDate")}>Task Deadline</Label>
+            <input
+              type="date"
+              required={canEdit("dueDate")}
+              disabled={!canEdit("dueDate")}
+              min={new Date().toISOString().split("T")[0]}
+              value={form.dueDate}
+              onChange={e => handle("dueDate", e.target.value)}
+              style={inputStyle(!canEdit("dueDate"))}
+              onFocus={e => { if (canEdit("dueDate")) e.target.style.borderColor = "#c084fc"; }}
+              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+            />
           </div>
 
           {/* Multi-day hint */}

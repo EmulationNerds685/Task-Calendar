@@ -9,8 +9,11 @@ export const getCalendarEvents = async (req, res) => {
 
     const filter = {};
 
-    // Filter by user if explicitly requested, but all roles see all tasks by default
-    if (user) {
+    // RBAC: Members only see their own tasks; Admins see everything
+    if (req.user.role !== "admin") {
+      filter.user = req.user.id;
+    } else if (user) {
+      // Admins can optionally filter by a specific user if provided in query
       filter.user = user;
     }
 

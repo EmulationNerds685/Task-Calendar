@@ -82,6 +82,7 @@ export default function CalendarPage() {
   const [dragError, setDragError]     = useState("");
   const [detailTask, setDetailTask]   = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const startDate = dayjs(date).startOf("month").subtract(7, "day").toISOString();
   const endDate   = dayjs(date).endOf("month").add(7, "day").toISOString();
@@ -158,7 +159,7 @@ export default function CalendarPage() {
 
     try {
       await api.patch(`/calendar/${event.id}`, {
-        date: dayjs(start).toISOString(), endDate: computedEndDate, startTime, endTime,
+        date: dayjs(start).toISOString(), startTime, endTime,
       });
       await refetch();
     } catch (err) {
@@ -179,7 +180,7 @@ export default function CalendarPage() {
     const endDay    = dayjs(end).startOf("day").toISOString();
     try {
       await api.patch(`/calendar/${event.id}`, {
-        date: dayjs(start).toISOString(), endDate: endDay, startTime, endTime,
+        date: dayjs(start).toISOString(), startTime, endTime,
       });
       await refetch();
     } catch (err) {
@@ -200,13 +201,30 @@ export default function CalendarPage() {
 
       <div style={{ padding: "28px 32px", maxWidth: "1280px", margin: "0 auto" }}>
 
-        <div style={{ marginBottom: "24px" }}>
-          <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>
-            Auto-scheduled tasks
-          </p>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
-            Calendar ✦
-          </h1>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px" }}>
+          <div>
+            <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>
+              Auto-scheduled tasks
+            </p>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
+              Calendar ✦
+            </h1>
+          </div>
+
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: "8px 18px", borderRadius: "12px", fontSize: "13px", fontWeight: 600,
+              background: "linear-gradient(135deg, #c084fc, #818cf8)",
+              border: "none", color: "white", cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(139,92,246,0.3)", transition: "opacity 0.2s",
+              fontFamily: "inherit"
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            + New task
+          </button>
         </div>
 
         {(error || dragError) && (
@@ -318,7 +336,14 @@ export default function CalendarPage() {
         <TaskFormModal
           task={editingTask}
           onClose={() => setEditingTask(null)}
-          onSaved={refetch}
+          onSaved={() => { refetch(); refetchTasks(); }}
+        />
+      )}
+
+      {showCreateModal && (
+        <TaskFormModal
+          onClose={() => setShowCreateModal(false)}
+          onSaved={() => { refetch(); refetchTasks(); }}
         />
       )}
     </Layout>

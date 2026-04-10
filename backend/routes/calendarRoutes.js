@@ -25,23 +25,15 @@ router.patch("/:eventId", verifyToken, async (req, res) => {
       startTime: req.body.startTime,
       endTime:   req.body.endTime,
     };
-    if (req.body.endDate !== undefined) {
-      updateFields.endDate = req.body.endDate;
-    }
 
     // UPDATE ALL associated events for this task at this specific time slot
-    // This ensures that when one person drags the shared task, it moves for everyone.
     await CalendarEvent.updateMany(
       { task: event.task._id, date: event.date, startTime: event.startTime },
       updateFields
     );
 
     // Keep task dates in sync 
-    const taskUpdate = { scheduledDate: req.body.date, startDate: req.body.date };
-    if (req.body.endDate !== undefined) {
-      taskUpdate.endDate = req.body.endDate;
-    }
-    await Task.findByIdAndUpdate(event.task._id, taskUpdate);
+    await Task.findByIdAndUpdate(event.task._id, { scheduledDate: req.body.date, startDate: req.body.date });
 
     const updatedEvent = await CalendarEvent.findById(req.params.eventId);
     res.json(updatedEvent);

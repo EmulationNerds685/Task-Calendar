@@ -85,25 +85,21 @@ export const createTask = async (req, res) => {
       body.attachments = [body.attachments];
     }
 
-    // CONFIGURE: dry-run schedule to check for conflicts before creation
-    const dryRun = calculateTaskSchedule(body);
-    const conflictWarning = await checkConflicts(
-      body.assignedTo || [req.user.id],
-      body.startDate  || dryRun.scheduledDate,
-      body.endDate    || dryRun.endDate
-    );
-
-    if (conflictWarning && String(req.body.force) !== "true") {
-      return res.status(409).json({ 
-        message: "Conflict detected", 
-        conflictWarning,
-        isConflict: true 
-      });
-    }
     const task = await Task.create(body);
-    await autoSchedule(task);
+    const rebalancedTasks = await autoSchedule(task);
 
-    res.status(201).json({ ...task.toObject(), conflictWarning });
+    // Filter to find if ANY task (new or shifted) is now past its deadline
+    const violatingTask = rebalancedTasks.find(t => {
+      const scheduled = dayjs(t.scheduledDate).startOf("day");
+      const due = dayjs(t.dueDate).startOf("day");
+      return scheduled.isAfter(due); // Broadened search
+    });
+
+    const deadlineWarning = violatingTask 
+      ? `One or more tasks (e.g., "${violatingTask.title}") shifted past their deadline.`
+      : null;
+
+    res.status(201).json({ ...task.toObject(), deadlineWarning });
   } catch (error) {
     res.status(500).json({ message: "Failed to create task", error: error.message });
   }
@@ -227,8 +223,8 @@ export const updateTask = async (req, res) => {
         return res.status(403).json({ message: "Not allowed to update this task" });
       }
 
-      // Members can update status, description, estimatedTime, startDate, endDate, and attachments on their own tasks
-      const allowedFields = ["status", "description", "estimatedTime", "attachments", "startDate", "endDate"];
+      // Members can update status, description, estimatedTime, startDate, and attachments on their own tasks
+      const allowedFields = ["status", "description", "estimatedTime", "attachments", "startDate"];
       allowedFields.forEach(field => {
         if (req.body[field] !== undefined) task[field] = req.body[field];
       });
@@ -237,7 +233,7 @@ export const updateTask = async (req, res) => {
 
       // If estimatedTime or dates changed, refresh the calendar slot
       const timeChanged = req.body.estimatedTime !== undefined && Number(req.body.estimatedTime) !== task.estimatedTime;
-      const datesChanged = req.body.startDate !== undefined || req.body.endDate !== undefined;
+      const datesChanged = req.body.startDate !== undefined;
       if (timeChanged || datesChanged) {
         try {
           await CalendarEvent.deleteMany({ task: task._id });
@@ -279,38 +275,36 @@ export const updateTask = async (req, res) => {
     const assignedToChanged = req.body.assignedTo !== undefined && oldAssignees !== newAssignees;
 
     const needsReschedule = priorityChanged || dueDateChanged || estimatedTimeChanged || assignedToChanged ||
-                            req.body.startDate !== undefined || req.body.endDate !== undefined;
+                            req.body.startDate !== undefined;
 
-    // CONFIGURE: dry-run schedule to check for conflicts before update
-    const dryRun = calculateTaskSchedule({ ...task.toObject(), ...body });
-    const conflictWarning = await checkConflicts(
-      body.assignedTo  || task.assignedTo,
-      body.startDate   || task.startDate || dryRun.scheduledDate,
-      body.endDate     || task.endDate   || dryRun.endDate,
-      task._id
-    );
-
-    if (conflictWarning && String(req.body.force) !== "true") {
-      return res.status(409).json({ 
-        message: "Conflict detected", 
-        conflictWarning,
-        isConflict: true 
-      });
-    }
-
-    Object.assign(task, body);
-    await task.save();
+    let deadlineWarning = null;
 
     if (needsReschedule) {
       try {
-        await CalendarEvent.deleteMany({ task: task._id });
-        await autoSchedule(task);
+        Object.assign(task, body);
+        await task.save(); // Save first so rebalanceSchedule(DB query) sees the new state
+        const rebalancedTasks = await autoSchedule(task);
+
+        // Check for violations
+        const violatingTask = rebalancedTasks.find(t => {
+          const scheduled = dayjs(t.scheduledDate).startOf("day");
+          const due = dayjs(t.dueDate).startOf("day");
+          return scheduled.isAfter(due); // In a real shift, any task might violate
+        });
+
+        if (violatingTask) {
+          deadlineWarning = `Shifting pushed task "${violatingTask.title}" past its deadline.`;
+        }
       } catch (scheduleErr) {
         console.error("[updateTask] admin reschedule failed (swallowed):", scheduleErr.message);
       }
+    } else {
+      Object.assign(task, body);
     }
 
-    res.status(200).json({ ...task.toObject(), conflictWarning });
+    await task.save();
+
+    res.status(200).json({ ...task.toObject(), deadlineWarning });
   } catch (error) {
     console.error("[updateTask] OUTER CATCH:", error.message, error.stack);
     res.status(500).json({ message: "Failed to update task", error: error.message });

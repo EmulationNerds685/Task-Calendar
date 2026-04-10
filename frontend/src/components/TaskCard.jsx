@@ -167,8 +167,7 @@ export default function TaskCard({ task, onClick, onToggle }) {
         )}
       </div>
 
-      {/* One unified Schedule section */}
-      {(task.startDate || hasSchedule) && (
+      {(task.scheduledDate && task.scheduledSlot) && (
         <div style={{
           display: "flex", alignItems: "center", gap: "6px",
           padding: "6px 10px", borderRadius: "8px",
@@ -180,13 +179,7 @@ export default function TaskCard({ task, onClick, onToggle }) {
             <path d="M4 1v2M8 1v2M1 5h10" stroke="#818cf8" strokeWidth="1" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: "11px", color: "#4f46e5", fontWeight: 600 }}>
-            {task.startDate
-              ? (task.endDate && dayjs(task.endDate).isAfter(dayjs(task.startDate), 'day')
-                ? `Scheduled: ${dayjs(task.startDate).format("MMM D")} – ${dayjs(task.endDate).format("MMM D")}`
-                : `Scheduled: ${dayjs(task.startDate).format("MMM D")} · ${task.scheduledSlot || "Flexible"}`
-              )
-              : `Scheduled: ${dayjs(task.scheduledDate).format("MMM D")} · ${task.scheduledSlot || ""}`
-            }
+            Scheduled: {dayjs(task.scheduledDate).format("MMM D")} · {task.scheduledSlot}
           </span>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import dayjs from "dayjs";
 import Layout from "../../components/Layout";
 import useAnalytics from "../../hooks/useAnalytics";
@@ -113,10 +113,38 @@ function AllocatedVsActual({ allocatedHours, weeklyActualMinutes, categories }) 
   );
 }
 
+// CHANGE: Manual dimension tracker to bypass Recharts "width -1" warnings
+function StableChartContainer({ children, height }) {
+  const [size, setSize] = useState({ width: 0, height });
+  const containerRef = useRef();
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const { width, height: h } = entries[0].contentRect;
+      if (width > 0 && h > 0) setSize({ width, height: h });
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", height, position: "relative" }}>
+      {size.width > 0 && children(size.width, size.height)}
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   // CHANGE #13: member selector
   const [selectedUserId, setSelectedUserId] = useState("");
   const { users } = useUsers();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setHasMounted(true), 200);
+    return () => clearTimeout(timer);
+  }, []);
 
   const { data, allocatedHours, weeklyActualMinutes, allTimeActualMinutes, loading, error } = useAnalytics(selectedUserId);
 
@@ -149,7 +177,10 @@ export default function AnalyticsPage() {
       categoryTotals[normCat] = (categoryTotals[normCat] || 0) + minutes;
     });
   });
-  const pieData = Object.entries(categoryTotals).map(([name, value]) => ({ name, value }));
+  const pieData = Object.entries(categoryTotals).map(([name, value]) => ({ 
+    name, 
+    value: Math.round((value / 60) * 10) / 10 
+  }));
 
   // All categories seen (normalised) — include categories from allTimeActualMinutes too
   const allCategories = [...new Set([
@@ -256,26 +287,26 @@ export default function AnalyticsPage() {
               <p style={{ fontSize: "14px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
                 Weekly Hours by Category <span style={{ color: "#c4b5fd", fontWeight: 400 }}>(Total)</span>
               </p>
-              <div style={{ height: "300px" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+              <StableChartContainer height={300}>
+                {(width, height) => (
+                  <PieChart width={width} height={height}>
                     <Pie
                       data={pieData}
-                      cx="50%" cy="50%"
+                      cx="51%" cy="50%" // Slightly offset for labels
                       innerRadius={60} outerRadius={100}
                       paddingAngle={5}
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, value }) => `${name} ${value}h`}
                     >
                       {pieData.map(entry => (
                         <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#c4b5fd"} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(val) => [`${Math.floor(val / 60)}h ${val % 60}m`, "Minutes"]} />
+                    <Tooltip formatter={(val) => [`${val}h`, "Hours"]} />
                     <Legend />
                   </PieChart>
-                </ResponsiveContainer>
-              </div>
+                )}
+              </StableChartContainer>
             </div>
 
             {/* Per-User Category Breakdown (Multiple Pie Charts) */}
@@ -294,7 +325,10 @@ export default function AnalyticsPage() {
                       userCategoryTotals[normCat] = (userCategoryTotals[normCat] || 0) + minutes;
                     });
                   });
-                  const userPieData = Object.entries(userCategoryTotals).map(([cat, val]) => ({ name: cat, value: val }));
+                  const userPieData = Object.entries(userCategoryTotals).map(([cat, val]) => ({ 
+                    name: cat, 
+                    value: Math.round((val / 60) * 10) / 10 
+                  }));
 
                   if (userPieData.length === 0) return null;
 
@@ -305,24 +339,25 @@ export default function AnalyticsPage() {
                       padding: "16px", boxShadow: "0 2px 8px rgba(139,92,246,0.04)"
                     }}>
                       <p style={{ fontSize: "13px", fontWeight: 600, color: "#6d28d9", margin: "0 0 12px", textAlign: "center" }}>{name}</p>
-                      <div style={{ height: "180px" }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
+                      <StableChartContainer height={220}>
+                        {(width, height) => (
+                          <PieChart width={width} height={height}>
                             <Pie
                               data={userPieData}
-                              cx="50%" cy="50%"
-                              innerRadius={35} outerRadius={60}
+                              cx="51%" cy="50%"
+                              innerRadius={40} outerRadius={70}
                               paddingAngle={2}
                               dataKey="value"
+                              label={({ name, value }) => `${name} ${value}h`}
                             >
                               {userPieData.map(entry => (
                                 <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#c4b5fd"} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(val) => [`${val}m`, ""]} />
+                            <Tooltip formatter={(val) => [`${val}h`, "Hours"]} />
                           </PieChart>
-                        </ResponsiveContainer>
-                      </div>
+                        )}
+                      </StableChartContainer>
                     </div>
                   );
                 })}
