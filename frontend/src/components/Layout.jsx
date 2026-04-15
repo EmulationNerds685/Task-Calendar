@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { Sun, Moon } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 // CHANGE #5: Calendar is first nav item
 // CHANGE #4: Settings nav item added (admin only)
@@ -52,6 +55,7 @@ const settingsItem = {
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user?.role === "admin";
@@ -68,19 +72,19 @@ export default function Layout({ children }) {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&display=swap" rel="stylesheet" />
-      <div className="flex h-screen overflow-hidden" style={{ background: "#faf8ff" }}>
+      <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
         {/* Sidebar */}
         <aside
           style={{
             width: collapsed ? "64px" : "220px",
             display: "flex",
             flexDirection: "column",
-            background: "rgba(255,255,255,0.9)",
+            background: "var(--bg-sidebar)",
             backdropFilter: "blur(12px)",
-            borderRight: "1px solid rgba(196,181,253,0.2)",
-            transition: "width 0.2s ease",
+            borderRight: "1px solid var(--border-dim)",
+            transition: "width 0.2s ease, background-color 0.3s ease",
             flexShrink: 0,
-            boxShadow: "2px 0 20px rgba(139,92,246,0.04)"
+            boxShadow: darkMode ? "none" : "2px 0 20px rgba(139,92,246,0.04)"
           }}
         >
           {/* Logo */}
@@ -103,7 +107,7 @@ export default function Layout({ children }) {
                     <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
                   </svg>
                 </div>
-                <span style={{ fontFamily: "'Fraunces', serif", fontSize: "15px", fontWeight: 600, color: "#4c1d95", whiteSpace: "nowrap" }}>
+                <span style={{ fontFamily: "'Fraunces', serif", fontSize: "15px", fontWeight: 600, color: "var(--accent-purple)", whiteSpace: "nowrap" }}>
                   TaskFlow
                 </span>
               </div>
@@ -145,9 +149,9 @@ export default function Layout({ children }) {
                   fontWeight: isActive ? 600 : 400,
                   textDecoration: "none",
                   transition: "all 0.15s",
-                  color: isActive ? "#7c3aed" : "#6b7280",
-                  background: isActive ? "rgba(233,213,255,0.5)" : "transparent",
-                  border: isActive ? "1px solid rgba(196,181,253,0.3)" : "1px solid transparent"
+                  color: isActive ? "var(--accent-purple)" : "var(--text-muted)",
+                  background: isActive ? (darkMode ? "rgba(139,92,246,0.2)" : "rgba(233,213,255,0.5)") : "transparent",
+                  border: isActive ? (darkMode ? "1px solid rgba(139,92,246,0.3)" : "1px solid rgba(196,181,253,0.3)") : "1px solid transparent"
                 })}
               >
                 <span style={{ flexShrink: 0 }}>{item.icon}</span>
@@ -156,13 +160,14 @@ export default function Layout({ children }) {
             ))}
           </nav>
 
-          {/* User + Logout */}
+          {/* User + Notifications + Logout */}
           <div style={{ padding: "8px", borderTop: "1px solid rgba(196,181,253,0.15)" }}>
-            {!collapsed && (
+            {!collapsed ? (
+              /* Expanded: avatar row with bell on the right */
               <div style={{
-                display: "flex", alignItems: "center", gap: "10px",
+                display: "flex", alignItems: "center", gap: "8px",
                 padding: "10px 12px", marginBottom: "4px",
-                borderRadius: "10px", background: "rgba(250,245,255,0.6)"
+                borderRadius: "10px", background: darkMode ? "rgba(30,41,59,0.5)" : "rgba(250,245,255,0.6)"
               }}>
                 <div style={{
                   width: "30px", height: "30px", borderRadius: "50%", flexShrink: 0,
@@ -172,14 +177,36 @@ export default function Layout({ children }) {
                 }}>
                   {initials}
                 </div>
-                <div style={{ overflow: "hidden", minWidth: 0 }}>
-                  <p style={{ fontSize: "13px", fontWeight: 600, color: "#1f2937", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div style={{ overflow: "hidden", minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-main)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {user?.name}
                   </p>
-                  <p style={{ fontSize: "11px", color: "#a78bfa", margin: 0, textTransform: "capitalize" }}>{user?.role}</p>
+                  <p style={{ fontSize: "11px", color: "var(--accent-purple)", margin: 0, textTransform: "capitalize" }}>{user?.role}</p>
                 </div>
+                {/* Notification bell — inline with avatar */}
+                <NotificationBell />
+              </div>
+            ) : (
+              /* Collapsed: bell only, centred */
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "4px", padding: "4px 0" }}>
+                <NotificationBell />
               </div>
             )}
+
+            <button
+               onClick={toggleDarkMode}
+               style={{
+                 display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start",
+                 gap: "8px", width: "100%", padding: collapsed ? "10px 0" : "9px 12px", marginBottom: "2px",
+                 borderRadius: "10px", border: "none", background: "transparent",
+                 fontSize: "13px", color: "var(--text-muted)", cursor: "pointer", transition: "all 0.15s"
+               }}
+               onMouseEnter={e => { e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "rgba(233,213,255,0.4)"; }}
+               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+             >
+               {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+               {!collapsed && <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>}
+             </button>
 
             <button
               onClick={handleLogout}
@@ -202,7 +229,7 @@ export default function Layout({ children }) {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 overflow-y-auto" style={{ background: "#faf8ff" }}>
+        <main className="flex-1 overflow-y-auto" style={{ background: "var(--bg-primary)" }}>
           {children}
         </main>
       </div>

@@ -1,6 +1,7 @@
 import Task from "../models/Task.js";
 import CalendarEvent from "../models/CalendarEvent.js";
 import autoSchedule from "../utils/autoScheduler.js";
+import { createNotifications } from "./notificationController.js";
 
 /*
  Share a task with additional users.
@@ -38,6 +39,15 @@ export const shareTask = async (req, res) => {
 
     task.assignedTo.push(...newIds);
     await task.save();
+
+    // Notify the newly added members
+    createNotifications({
+      recipientIds: newIds,
+      actorId:      req.user.id,
+      type:         "task_shared",
+      taskId:       task._id,
+      message:      `A task was shared with you: "${task.title}"`
+    }).catch(e => console.error("[notify] share failed:", e.message));
 
     // Create calendar events for newly added assignees
     try {

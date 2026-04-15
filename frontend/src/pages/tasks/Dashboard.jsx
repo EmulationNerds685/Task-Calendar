@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { LayoutList, LayoutGrid, Columns, Sparkles, Inbox } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import Layout from "../../components/Layout";
 import TaskCard from "../../components/TaskCard";
 import TaskFilters from "../../components/TaskFilters";
@@ -11,52 +13,52 @@ import api from "../../api/axios";
 
 const KANBAN_COLUMNS = ["Not Started", "In Progress", "Completed", "Overdue"];
 
-const columnStyle = {
-  "Not Started": { accent: "#94a3b8", bg: "rgba(241,245,249,0.8)", dot: "#94a3b8" },
-  "In Progress":  { accent: "#818cf8", bg: "rgba(238,242,255,0.8)", dot: "#818cf8" },
-  "Completed":    { accent: "#34d399", bg: "rgba(236,253,245,0.8)", dot: "#34d399" },
-  "Overdue":      { accent: "#f87171", bg: "rgba(254,242,242,0.8)", dot: "#f87171" },
-};
+const getColumnStyle = (darkMode) => ({
+  "Not Started": { accent: "#94a3b8", bg: darkMode ? "rgba(30,41,59,0.4)" : "rgba(241,245,249,0.8)", dot: "#94a3b8" },
+  "In Progress":  { accent: "#818cf8", bg: darkMode ? "rgba(99,102,241,0.12)" : "rgba(238,242,255,0.8)", dot: "#818cf8" },
+  "Completed":    { accent: "#34d399", bg: darkMode ? "rgba(16,185,129,0.12)" : "rgba(236,253,245,0.8)", dot: "#34d399" },
+  "Overdue":      { accent: "#f87171", bg: darkMode ? "rgba(239,68,68,0.12)" : "rgba(254,242,242,0.8)", dot: "#f87171" },
+});
 
-const priorityConfig = {
-  High:   { bg: "rgba(254,242,242,0.8)", text: "#ef4444", border: "rgba(252,165,165,0.4)", dot: "#ef4444" },
-  Medium: { bg: "rgba(255,251,235,0.8)", text: "#f59e0b", border: "rgba(253,211,77,0.4)",  dot: "#f59e0b" },
-  Low:    { bg: "rgba(236,253,245,0.8)", text: "#10b981", border: "rgba(110,231,183,0.4)", dot: "#10b981" },
-};
+const getPriorityConfig = (darkMode) => ({
+  High:   { bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.8)", text: "#ef4444", border: darkMode ? "rgba(239,68,68,0.25)" : "rgba(252,165,165,0.4)", dot: "#ef4444" },
+  Medium: { bg: darkMode ? "rgba(245,158,11,0.15)" : "rgba(255,251,235,0.8)", text: "#f59e0b", border: darkMode ? "rgba(245,158,11,0.25)" : "rgba(253,211,77,0.4)",  dot: "#f59e0b" },
+  Low:    { bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.8)", text: "#10b981", border: darkMode ? "rgba(16,185,129,0.25)" : "rgba(110,231,183,0.4)", dot: "#10b981" },
+});
 
-const statusConfig = {
-  "Not Started": { bg: "#f1f5f9",              text: "#64748b" },
-  "In Progress":  { bg: "rgba(238,242,255,0.9)", text: "#6366f1" },
-  "Completed":    { bg: "rgba(236,253,245,0.9)", text: "#10b981" },
-  "Overdue":      { bg: "rgba(254,242,242,0.9)", text: "#ef4444" },
-};
+const getStatusConfig = (darkMode) => ({
+  "Not Started": { bg: darkMode ? "rgba(71,85,105,0.3)" : "#f1f5f9",              text: darkMode ? "#94a3b8" : "#64748b" },
+  "In Progress":  { bg: darkMode ? "rgba(99,102,241,0.15)" : "rgba(238,242,255,0.9)", text: darkMode ? "#818cf8" : "#6366f1" },
+  "Completed":    { bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.9)", text: darkMode ? "#34d399" : "#10b981" },
+  "Overdue":      { bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.9)", text: darkMode ? "#f87171" : "#ef4444" },
+});
 
 // CHANGE #2: 5th card for total active tasks
-const summaryCards = [
+const getSummaryCards = (darkMode) => [
   {
     key: "active",
     label: "Active tasks",
-    color: "#7c3aed",
-    bg: "rgba(250,245,255,0.7)",
-    border: "rgba(196,181,253,0.4)",
+    color: darkMode ? "#a78bfa" : "#7c3aed",
+    bg: darkMode ? "rgba(139,92,246,0.15)" : "rgba(250,245,255,0.7)",
+    border: darkMode ? "rgba(139,92,246,0.3)" : "rgba(196,181,253,0.4)",
     getFilter: () => ({}), // clears filters
     getCount: (tasks) => tasks.filter(t => t.status !== "Completed").length,
   },
   {
     key: "overdue",
     label: "Overdue",
-    color: "#ef4444",
-    bg: "rgba(254,242,242,0.7)",
-    border: "rgba(252,165,165,0.4)",
+    color: "#f87171",
+    bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.7)",
+    border: darkMode ? "rgba(239,68,68,0.3)" : "rgba(252,165,165,0.4)",
     getFilter: () => ({ status: "Overdue" }),
     getCount: (tasks) => tasks.filter(t => t.status === "Overdue").length,
   },
   {
     key: "today",
     label: "Due today",
-    color: "#f59e0b",
-    bg: "rgba(255,251,235,0.7)",
-    border: "rgba(253,211,77,0.4)",
+    color: "#fbbf24",
+    bg: darkMode ? "rgba(245,158,11,0.15)" : "rgba(255,251,235,0.7)",
+    border: darkMode ? "rgba(245,158,11,0.3)" : "rgba(253,211,77,0.4)",
     getFilter: () => ({ dueDateFrom: dayjs().format("YYYY-MM-DD"), dueDateTo: dayjs().format("YYYY-MM-DD") }),
     getCount: (tasks) => tasks.filter(t => dayjs(t.dueDate).isSame(dayjs().startOf("day"), "day")).length,
   },
@@ -64,8 +66,8 @@ const summaryCards = [
     key: "upcoming",
     label: "Upcoming",
     color: "#818cf8",
-    bg: "rgba(238,242,255,0.7)",
-    border: "rgba(196,181,253,0.4)",
+    bg: darkMode ? "rgba(99,102,241,0.15)" : "rgba(238,242,255,0.7)",
+    border: darkMode ? "rgba(99,102,241,0.3)" : "rgba(196,181,253,0.4)",
     getFilter: () => ({ dueDateFrom: dayjs().add(1, "day").format("YYYY-MM-DD") }),
     getCount: (tasks) => tasks.filter(t => dayjs(t.dueDate).isAfter(dayjs().startOf("day")) && t.status !== "Completed").length,
   },
@@ -73,15 +75,17 @@ const summaryCards = [
     key: "done",
     label: "Completed",
     color: "#34d399",
-    bg: "rgba(236,253,245,0.7)",
-    border: "rgba(110,231,183,0.4)",
+    bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.7)",
+    border: darkMode ? "rgba(16,185,129,0.3)" : "rgba(110,231,183,0.4)",
     getFilter: () => ({ status: "Completed" }),
     getCount: (tasks) => tasks.filter(t => t.status === "Completed").length,
   },
 ];
 
 // CHANGE #1: Table row component for list view
-function TableRow({ task, onClick, onToggle }) {
+function TableRow({ task, onClick, onToggle, darkMode }) {
+  const priorityConfig = getPriorityConfig(darkMode);
+  const statusConfig = getStatusConfig(darkMode);
   const pc = priorityConfig[task.priority] || priorityConfig.Medium;
   const sc = statusConfig[task.status] || statusConfig["Not Started"];
 
@@ -91,8 +95,8 @@ function TableRow({ task, onClick, onToggle }) {
   return (
     <tr
       onClick={() => onClick(task)}
-      style={{ borderBottom: "1px solid rgba(196,181,253,0.1)", cursor: "pointer", transition: "background 0.12s" }}
-      onMouseEnter={e => e.currentTarget.style.background = "rgba(233,213,255,0.12)"}
+      style={{ borderBottom: "1px solid var(--border-dim)", cursor: "pointer", transition: "all 0.15s" }}
+      onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "rgba(233,213,255,0.12)"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
       <td style={{ padding: "12px 0 12px 14px", width: "40px", textAlign: "center" }}>
@@ -168,9 +172,9 @@ function TableRow({ task, onClick, onToggle }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { darkMode } = useTheme();
   const isAdmin = user?.role === "admin";
 
-  // CHANGE #1: view state now includes "table"
   const [view, setView] = useState("cards");
   const [filters, setFilters] = useState({});
   const [page, setPage] = useState(1);
@@ -179,6 +183,9 @@ export default function Dashboard() {
   const [editTask, setEditTask] = useState(null);
 
   const { tasks, pagination, loading, error, refetch } = useTasks({ ...filters, page, limit: 10 });
+
+  const columnStyle = getColumnStyle(darkMode);
+  const summaryCards = getSummaryCards(darkMode);
 
   const handleToggleStatus = async (taskId, newStatus) => {
     try {
@@ -202,52 +209,50 @@ export default function Dashboard() {
   })();
 
   const viewOptions = [
-    { key: "cards", label: "☰ Cards" },
-    { key: "table", label: "⊟ Table" },
-    { key: "kanban", label: "⊞ Board" },
+    { key: "cards", icon: LayoutList,  label: "Cards"  },
+    { key: "table", icon: LayoutGrid,  label: "Table"  },
+    { key: "kanban", icon: Columns,     label: "Board"  },
   ];
 
   return (
     <Layout>
       <div style={{ padding: "28px 32px", maxWidth: "1280px", margin: "0 auto" }}>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "28px" }}>
           <div>
             <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>
               {dayjs().format("dddd, MMMM D")}
             </p>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
-              {greeting}, {user?.name?.split(" ")[0]} ✦
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "var(--text-main)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              {greeting}, {user?.name?.split(" ")[0]} <Sparkles size={18} color="#a78bfa" style={{ flexShrink: 0 }} />
             </h1>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* CHANGE #1: Three-way view toggle */}
             <div style={{
               display: "flex", alignItems: "center", gap: "2px",
-              background: "rgba(255,255,255,0.8)", border: "1px solid rgba(196,181,253,0.3)",
+              background: "var(--bg-card)", border: "1px solid var(--border-dim)",
               borderRadius: "12px", padding: "3px"
             }}>
-              {viewOptions.map(({ key, label }) => (
+              {viewOptions.map((opt) => (
                 <button
-                  key={key}
-                  onClick={() => setView(key)}
+                  key={opt.key}
+                  onClick={() => setView(opt.key)}
                   style={{
                     padding: "6px 14px", borderRadius: "9px", fontSize: "13px", fontWeight: 500,
                     border: "none", cursor: "pointer", transition: "all 0.15s",
-                    background: view === key ? "linear-gradient(135deg, #e9d5ff, #c7d2fe)" : "transparent",
-                    color: view === key ? "#6d28d9" : "#9ca3af",
-                    boxShadow: view === key ? "0 1px 4px rgba(139,92,246,0.15)" : "none",
-                    fontFamily: "inherit"
+                    background: view === opt.key ? (darkMode ? "rgba(139,92,246,0.15)" : "rgba(233,213,255,0.5)") : "transparent",
+                    color: view === opt.key ? "var(--accent-purple)" : "var(--text-muted)",
+                    fontFamily: "inherit",
+                    display: "flex", alignItems: "center", gap: "6px"
                   }}
                 >
-                  {label}
+                  <opt.icon size={14} strokeWidth={1.8} />
+                  {opt.label}
                 </button>
               ))}
             </div>
 
-            {/* FIX: all roles can create tasks — members auto-assign to themselves */}
             <button
               onClick={() => setShowCreateModal(true)}
               style={{
@@ -265,44 +270,38 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* CHANGE #2: 5-card summary row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "24px" }}>
-          {summaryCards.map(({ key, label, color, bg, border, getFilter, getCount }) => {
-            const count = getCount(tasks);
-            const isActive = JSON.stringify(filters) === JSON.stringify(getFilter());
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "28px" }}>
+          {summaryCards.map((card) => {
+            const count = card.getCount(tasks);
+            const isActive = JSON.stringify(filters) === JSON.stringify(card.getFilter());
             return (
               <div
-                key={key}
-                onClick={() => handleFilterChange(isActive ? {} : getFilter())}
+                key={card.key}
+                onClick={() => handleFilterChange(isActive ? {} : card.getFilter())}
                 style={{
-                  background: bg,
-                  border: `1px solid ${isActive ? color + "80" : border}`,
-                  borderRadius: "16px", padding: "16px 18px", cursor: "pointer",
+                  background: card.bg,
+                  border: `1px solid ${isActive ? card.color + "80" : card.border}`,
+                  borderRadius: "16px", padding: "16px 20px", cursor: "pointer",
                   transition: "all 0.2s", backdropFilter: "blur(8px)",
-                  boxShadow: isActive ? `0 4px 16px ${border}` : "none",
+                  boxShadow: isActive ? `0 4px 16px ${card.border}` : (darkMode ? "none" : "0 4px 12px rgba(139,92,246,0.03)"),
                   transform: isActive ? "translateY(-1px)" : "none"
                 }}
                 onMouseEnter={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.boxShadow = `0 8px 24px ${border}`;
-                  }
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = darkMode ? "0 8px 24px rgba(0,0,0,0.2)" : "0 8px 24px rgba(139,92,246,0.08)";
                 }}
                 onMouseLeave={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }
+                  e.currentTarget.style.transform = isActive ? "translateY(-1px)" : "translateY(0)";
+                  e.currentTarget.style.boxShadow = isActive ? `0 4px 16px ${card.border}` : (darkMode ? "none" : "0 4px 12px rgba(139,92,246,0.03)");
                 }}
               >
-                <p style={{ fontSize: "11px", color: "#9ca3af", margin: "0 0 6px", fontWeight: 500 }}>{label}</p>
-                <p style={{ fontSize: "26px", fontWeight: 700, color, margin: 0, lineHeight: 1 }}>{count}</p>
+                <p style={{ fontSize: "11px", color: "#9ca3af", margin: "0 0 6px", fontWeight: 500 }}>{card.label}</p>
+                <p style={{ fontSize: "26px", fontWeight: 700, color: card.color, margin: 0, lineHeight: 1 }}>{count}</p>
               </div>
             );
           })}
         </div>
 
-        {/* Filters */}
         <div style={{ marginBottom: "20px" }}>
           <TaskFilters filters={filters} onChange={handleFilterChange} />
         </div>
@@ -320,7 +319,9 @@ export default function Dashboard() {
           </div>
         ) : tasks.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🌸</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px", color: "#d8b4fe" }}>
+              <Inbox size={42} strokeWidth={1.2} />
+            </div>
             <p style={{ fontSize: "15px", color: "#9ca3af" }}>No tasks found</p>
             {isAdmin && <p style={{ fontSize: "13px", color: "#c4b5fd" }}>Create your first task to get started</p>}
           </div>
@@ -336,19 +337,18 @@ export default function Dashboard() {
           </>
 
         ) : view === "table" ? (
-          /* CHANGE #1: Table list view */
           <>
             <div style={{
-              background: "rgba(255,255,255,0.88)", backdropFilter: "blur(8px)",
-              border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-              overflow: "hidden", boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+              background: "var(--bg-card)", backdropFilter: "blur(8px)",
+              border: "1px solid var(--border-dim)", borderRadius: "18px",
+              overflow: "hidden", boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.05)"
             }}>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(196,181,253,0.2)", background: "rgba(250,245,255,0.5)" }}>
+                    <tr style={{ borderBottom: "1px solid rgba(196,181,253,0.2)", background: darkMode ? "rgba(255,255,255,0.03)" : "rgba(250,245,255,0.5)" }}>
                       <th style={{ width: "40px" }}></th>
-                      {["Title", "Assignee", "Priority", "Status", "Deadline", "Scheduled slot"].map((h, i) => (
+                      {["Title", "Assignee", "Priority", "Status", "Deadline", "Scheduled slot"].map((h) => (
                         <th key={h} style={{
                           padding: "12px 14px",
                           fontSize: "11px", fontWeight: 600, color: "#c4b5fd",
@@ -363,7 +363,7 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {tasks.map(task => (
-                      <TableRow key={task._id} task={task} onClick={() => setSelectedTask(task)} onToggle={handleToggleStatus} />
+                      <TableRow key={task._id} task={task} onClick={() => setSelectedTask(task)} onToggle={handleToggleStatus} darkMode={darkMode} />
                     ))}
                   </tbody>
                 </table>
@@ -373,32 +373,26 @@ export default function Dashboard() {
           </>
 
         ) : (
-          /* Kanban view */
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px" }}>
-            {KANBAN_COLUMNS.map(col => {
-              const colTasks = tasks.filter(t => t.status === col);
-              const cs = columnStyle[col];
+            {KANBAN_COLUMNS.map(colName => {
+              const colTasks = tasks.filter(t => t.status === colName);
+              const style = columnStyle[colName];
               return (
-                <div key={col} style={{
-                  background: cs.bg, borderRadius: "16px",
-                  border: `1px solid ${cs.accent}30`,
-                  borderTop: `3px solid ${cs.accent}`,
-                  padding: "16px"
+                <div key={colName} style={{
+                  background: style.bg, borderRadius: "16px",
+                  border: `1px solid ${style.accent}30`,
+                  overflow: "hidden"
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-                      <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: cs.dot }} />
-                      <h3 style={{ fontSize: "13px", fontWeight: 600, color: "#374151", margin: 0 }}>{col}</h3>
-                    </div>
-                    <span style={{
-                      fontSize: "11px", padding: "2px 8px", borderRadius: "99px",
-                      background: "rgba(255,255,255,0.7)", border: "1px solid rgba(196,181,253,0.2)",
-                      color: "#6b7280", fontWeight: 600
-                    }}>
-                      {colTasks.length}
-                    </span>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px",
+                    background: darkMode ? "rgba(255,255,255,0.03)" : "rgba(250,245,255,0.5)",
+                    borderBottom: "1px solid var(--border-dim)"
+                  }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: style.dot }} />
+                    <h3 style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-main)", margin: 0, letterSpacing: "0.02em" }}>{colName}</h3>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 600, marginLeft: "auto", background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.8)", padding: "2px 6px", borderRadius: "6px" }}>{colTasks.length}</span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "10px" }}>
                     {colTasks.length === 0 ? (
                       <p style={{ fontSize: "12px", color: "#d1d5db", textAlign: "center", padding: "20px 0" }}>Empty</p>
                     ) : (

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
+import { User, Zap, AlertCircle } from "lucide-react";
 
 // Regex rules
 const NAME_REGEX = /^[a-zA-Z\s]{2,50}$/;
@@ -39,6 +41,7 @@ const validate = (form) => {
 
 export default function Register() {
   const { register } = useAuth();
+  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "member" });
   const [errors, setErrors] = useState({});
@@ -74,16 +77,16 @@ export default function Register() {
 
   const inputStyle = (hasError) => ({
     width: "100%", padding: "10px 14px", fontSize: "14px",
-    background: hasError ? "rgba(254,242,242,0.5)" : "#fafafa",
-    border: `1.5px solid ${hasError ? "rgba(252,165,165,0.8)" : "#e5e7eb"}`,
+    background: hasError ? (darkMode ? "rgba(239, 68, 68, 0.1)" : "rgba(254,242,242,0.5)") : (darkMode ? "rgba(255,255,255,0.03)" : "#fafafa"),
+    border: `1.5px solid ${hasError ? "rgba(239, 68, 68, 0.5)" : (darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb")}`,
     borderRadius: "12px", outline: "none",
-    transition: "border-color 0.2s", boxSizing: "border-box", color: "#1f2937",
+    transition: "border-color 0.2s", boxSizing: "border-box", color: "var(--text-main)",
     fontFamily: "inherit"
   });
 
   const FieldError = ({ msg }) => msg ? (
     <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "5px", display: "flex", alignItems: "center", gap: "4px" }}>
-      <span>⚠</span> {msg}
+      <AlertCircle size={12} strokeWidth={2.5} /> {msg}
     </p>
   ) : null;
 
@@ -102,13 +105,13 @@ export default function Register() {
   const strength = getPasswordStrength(form.password);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(135deg, #fdf6f0 0%, #f5eef8 50%, #eef4fd 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: darkMode ? "var(--bg-main)" : "linear-gradient(135deg, #fdf6f0 0%, #f5eef8 50%, #eef4fd 100%)" }}>
       {/* Blobs */}
-      <div style={{ position: "fixed", top: "-80px", right: "-60px", width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(186,230,255,0.4) 0%, transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "fixed", bottom: "-60px", left: "-40px", width: "320px", height: "320px", borderRadius: "50%", background: "radial-gradient(circle, rgba(254,215,170,0.35) 0%, transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "fixed", top: "40%", left: "-80px", width: "280px", height: "280px", borderRadius: "50%", background: "radial-gradient(circle, rgba(233,213,255,0.4) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", top: "-80px", right: "-60px", width: "400px", height: "400px", borderRadius: "50%", background: darkMode ? "radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)" : "radial-gradient(circle, rgba(186,230,255,0.4) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", bottom: "-60px", left: "-40px", width: "320px", height: "320px", borderRadius: "50%", background: darkMode ? "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)" : "radial-gradient(circle, rgba(254,215,170,0.35) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "fixed", top: "40%", left: "-80px", width: "280px", height: "280px", borderRadius: "50%", background: darkMode ? "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)" : "radial-gradient(circle, rgba(233,213,255,0.4) 0%, transparent 70%)", pointerEvents: "none" }} />
 
-      <div style={{ width: "100%", maxWidth: "460px", position: "relative", zIndex: 10, background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)", borderRadius: "24px", border: "1px solid rgba(196,181,253,0.2)", padding: "40px", boxShadow: "0 20px 60px rgba(139,92,246,0.08), 0 0 0 1px rgba(255,255,255,0.8)" }}>
+      <div style={{ width: "100%", maxWidth: "460px", position: "relative", zIndex: 10, background: "var(--bg-card)", backdropFilter: "blur(16px)", borderRadius: "24px", border: "1px solid var(--border-dim)", padding: "40px", boxShadow: darkMode ? "0 20px 60px rgba(0,0,0,0.3)" : "0 20px 60px rgba(139,92,246,0.08)" }}>
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-8">
@@ -120,18 +123,18 @@ export default function Register() {
               <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white" opacity="0.9"/>
             </svg>
           </div>
-          <span style={{ fontFamily: "'Fraunces', serif", fontSize: "17px", fontWeight: 600, color: "#4c1d95" }}>TaskFlow</span>
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: "17px", fontWeight: 600, color: "var(--accent-purple)" }}>TaskFlow</span>
         </div>
 
         <div className="mb-8">
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "28px", fontWeight: 700, color: "#1e1b4b", marginBottom: "6px" }}>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "28px", fontWeight: 700, color: "var(--text-main)", marginBottom: "6px" }}>
             Create your account
           </h2>
-          <p style={{ fontSize: "14px", color: "#9ca3af" }}>Get your team up and running today</p>
+          <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>Get your team up and running today</p>
         </div>
 
         {serverError && (
-          <div style={{ marginBottom: "20px", padding: "12px 16px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: "12px", fontSize: "13px", color: "#be123c" }}>
+          <div style={{ marginBottom: "20px", padding: "12px 16px", background: darkMode ? "rgba(239,68,68,0.1)" : "#fff1f2", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "12px", fontSize: "13px", color: "#ef4444" }}>
             {serverError}
           </div>
         )}
@@ -140,50 +143,50 @@ export default function Register() {
 
           {/* Name */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>Your name</label>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--text-main)", marginBottom: "6px" }}>Your name</label>
             <input
               type="text"
               value={form.name}
               onChange={e => handleChange("name", e.target.value)}
               placeholder="Jane Smith"
               style={inputStyle(!!errors.name)}
-              onFocus={e => { if (!errors.name) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => { if (!errors.name) e.target.style.borderColor = "#e5e7eb"; }}
+              onFocus={e => { if (!errors.name) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => { if (!errors.name) e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"; }}
             />
             <FieldError msg={errors.name} />
           </div>
 
           {/* Email */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>Email address</label>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--text-main)", marginBottom: "6px" }}>Email address</label>
             <input
               type="email"
               value={form.email}
               onChange={e => handleChange("email", e.target.value)}
               placeholder="you@example.com"
               style={inputStyle(!!errors.email)}
-              onFocus={e => { if (!errors.email) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => { if (!errors.email) e.target.style.borderColor = "#e5e7eb"; }}
+              onFocus={e => { if (!errors.email) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => { if (!errors.email) e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"; }}
             />
             <FieldError msg={errors.email} />
           </div>
 
           {/* Password */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>Password</label>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--text-main)", marginBottom: "6px" }}>Password</label>
             <input
               type="password"
               value={form.password}
               onChange={e => handleChange("password", e.target.value)}
               placeholder="Min. 6 characters with a letter and number"
               style={inputStyle(!!errors.password)}
-              onFocus={e => { if (!errors.password) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => { if (!errors.password) e.target.style.borderColor = "#e5e7eb"; }}
+              onFocus={e => { if (!errors.password) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => { if (!errors.password) e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"; }}
             />
             {/* Live strength bar */}
             {form.password && !errors.password && (
               <div style={{ marginTop: "8px" }}>
-                <div style={{ height: "3px", borderRadius: "99px", background: "#e5e7eb", overflow: "hidden" }}>
+                <div style={{ height: "3px", borderRadius: "99px", background: darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb", overflow: "hidden" }}>
                   <div style={{ height: "100%", width: strength?.width, background: strength?.color, borderRadius: "99px", transition: "width 0.3s, background 0.3s" }} />
                 </div>
                 <p style={{ fontSize: "11px", color: strength?.color, marginTop: "4px", fontWeight: 500 }}>
@@ -196,26 +199,28 @@ export default function Register() {
 
           {/* Role selector */}
           <div>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "#4b5563", marginBottom: "8px" }}>I am a…</label>
+            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--text-main)", marginBottom: "8px" }}>I am a…</label>
             <div className="flex gap-3">
               {[
-                { val: "member", label: "Team Member", icon: "👤", desc: "View & update tasks" },
-                { val: "admin", label: "Admin", icon: "⚡", desc: "Full access & create tasks" }
-              ].map(({ val, label, icon, desc }) => (
+                { val: "member", label: "Team Member", Icon: User, desc: "View & update tasks" },
+                { val: "admin", label: "Admin", Icon: Zap, desc: "Full access & create tasks" }
+              ].map(({ val, label, Icon, desc }) => (
                 <button
                   key={val}
                   type="button"
-                  onClick={() => handleChange("role", val)}
+                  onConfirm={() => handleChange("role", val)}
                   style={{
                     flex: 1, padding: "12px", borderRadius: "12px", textAlign: "left",
-                    border: form.role === val ? "2px solid #c084fc" : "1.5px solid #e5e7eb",
-                    background: form.role === val ? "rgba(233,213,255,0.3)" : "white",
+                    border: form.role === val ? "2px solid var(--accent-purple)" : "1.5px solid var(--border-dim)",
+                    background: form.role === val ? (darkMode ? "rgba(139,92,246,0.15)" : "rgba(233,213,255,0.3)") : (darkMode ? "rgba(255,255,255,0.02)" : "white"),
                     cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit"
                   }}
                 >
-                  <div style={{ fontSize: "18px", marginBottom: "4px" }}>{icon}</div>
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#1f2937" }}>{label}</div>
-                  <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "2px" }}>{desc}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "6px", color: form.role === val ? "var(--accent-purple)" : "var(--text-muted)" }}>
+                    <Icon size={18} strokeWidth={1.8} />
+                  </div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-main)" }}>{label}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>{desc}</div>
                 </button>
               ))}
             </div>
@@ -236,9 +241,9 @@ export default function Register() {
           </button>
         </form>
 
-        <p style={{ marginTop: "24px", textAlign: "center", fontSize: "13px", color: "#9ca3af" }}>
+        <p style={{ marginTop: "24px", textAlign: "center", fontSize: "13px", color: "var(--text-muted)" }}>
           Already have an account?{" "}
-          <Link to="/login" style={{ color: "#7c3aed", fontWeight: 600, textDecoration: "none" }}>
+          <Link to="/login" style={{ color: "var(--accent-purple)", fontWeight: 600, textDecoration: "none" }}>
             Sign in
           </Link>
         </p>

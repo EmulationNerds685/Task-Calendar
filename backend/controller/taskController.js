@@ -2,6 +2,7 @@ import Task from "../models/Task.js";
 import CalendarEvent from "../models/CalendarEvent.js";
 import autoSchedule, { calculateTaskSchedule } from "../utils/autoScheduler.js";
 import dayjs from "dayjs";
+import { createNotifications } from "./notificationController.js";
 
 /**
  * Check for scheduling conflicts (overlapping CalendarEvents)
@@ -98,6 +99,17 @@ export const createTask = async (req, res) => {
     const deadlineWarning = violatingTask 
       ? `One or more tasks (e.g., "${violatingTask.title}") shifted past their deadline.`
       : null;
+
+    // Notify all assignees that a task was created for them
+    if (task.assignedTo && task.assignedTo.length > 0) {
+      createNotifications({
+        recipientIds: task.assignedTo,
+        actorId:      req.user.id,
+        type:         "task_assigned",
+        taskId:       task._id,
+        message:      `You were assigned to "${task.title}"`
+      }).catch(e => console.error("[notify] create failed:", e.message));
+    }
 
     res.status(201).json({ ...task.toObject(), deadlineWarning });
   } catch (error) {
@@ -276,6 +288,21 @@ export const updateTask = async (req, res) => {
 
     const needsReschedule = priorityChanged || dueDateChanged || estimatedTimeChanged || assignedToChanged ||
                             req.body.startDate !== undefined;
+
+    // Notify newly added assignees
+    if (assignedToChanged && req.body.assignedTo) {
+      const oldSet = new Set((task.assignedTo || []).map(id => (id._id || id).toString()));
+      const newlyAdded = (req.body.assignedTo || []).filter(id => !oldSet.has(id.toString()));
+      if (newlyAdded.length > 0) {
+        createNotifications({
+          recipientIds: newlyAdded,
+          actorId:      req.user.id,
+          type:         "task_assigned",
+          taskId:       task._id,
+          message:      `You were assigned to "${task.title}"`
+        }).catch(e => console.error("[notify] update-assign failed:", e.message));
+      }
+    }
 
     let deadlineWarning = null;
 

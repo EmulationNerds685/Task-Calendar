@@ -3,10 +3,13 @@ import dayjs from "dayjs";
 import Layout from "../../components/Layout";
 import useAnalytics from "../../hooks/useAnalytics";
 import useUsers from "../../hooks/useUsers";
+import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from "recharts";
+import { Sparkles, BarChart2, AlertTriangle } from "lucide-react";
 
 // CHANGE #12: Fixed colour palette — each person gets a consistent colour by index
 const PERSON_PALETTE = [
@@ -38,18 +41,21 @@ function buildPersonColorMap(dataEntries) {
   return seen; // Map<userId|userName, { name, color }>
 }
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, darkMode }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
-      border: "1px solid rgba(196,181,253,0.3)", borderRadius: "12px",
-      padding: "10px 14px", boxShadow: "0 8px 24px rgba(139,92,246,0.1)",
+      background: darkMode ? "rgba(30,41,59,0.95)" : "rgba(255,255,255,0.97)", 
+      backdropFilter: "blur(12px)",
+      border: darkMode ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(196,181,253,0.3)", 
+      borderRadius: "12px",
+      padding: "10px 14px", 
+      boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.3)" : "0 8px 24px rgba(139,92,246,0.1)",
       fontSize: "12px"
     }}>
-      {label && <p style={{ color: "#9ca3af", margin: "0 0 6px" }}>{label}</p>}
+      {label && <p style={{ color: "var(--text-muted)", margin: "0 0 6px" }}>{label}</p>}
       {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color || "#6d28d9", fontWeight: 600, margin: "2px 0" }}>
+        <p key={i} style={{ color: p.color || "var(--accent-purple)", fontWeight: 600, margin: "2px 0" }}>
           {p.name}: {p.value} min
         </p>
       ))}
@@ -58,20 +64,20 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // CHANGE #14: Progress bar comparing allocated vs actual hours
-function AllocatedVsActual({ allocatedHours, weeklyActualMinutes, categories }) {
+function AllocatedVsActual({ allocatedHours, weeklyActualMinutes, categories, darkMode }) {
   // Show all unique categories that have either allocated hours or actual minutes
   const cats = [...new Set(categories)].filter(c => allocatedHours[c] !== undefined || weeklyActualMinutes[c]);
   if (cats.length === 0) return null;
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-      border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-      padding: "24px", boxShadow: "0 2px 12px rgba(139,92,246,0.05)",
+      background: "var(--bg-card)", backdropFilter: "blur(8px)",
+      border: "1px solid var(--border-dim)", borderRadius: "18px",
+      padding: "24px", boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.05)",
       marginBottom: "20px"
     }}>
-      <p style={{ fontSize: "13px", fontWeight: 600, color: "#4b5563", margin: "0 0 18px" }}>
-        Allocated vs actual hours <span style={{ color: "#c4b5fd", fontWeight: 400 }}>(this week)</span>
+      <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-main)", margin: "0 0 18px" }}>
+        Allocated vs actual hours <span style={{ color: "var(--accent-purple)", fontWeight: 400 }}>(this week)</span>
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
         {cats.map(cat => {
@@ -85,14 +91,18 @@ function AllocatedVsActual({ allocatedHours, weeklyActualMinutes, categories }) 
             return (
               <div key={cat}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#4b5563" }}>{catName}</span>
-                  <span style={{ fontSize: "11px", color: over ? "#ef4444" : "#9ca3af", fontWeight: 500 }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-main)" }}>{catName}</span>
+                  <span style={{ fontSize: "11px", color: over ? "#ef4444" : "var(--text-muted)", fontWeight: 500 }}>
                     {Math.round(actual / 60 * 10) / 10}h actual
                     {allocated > 0 ? ` / ${allocatedHours[cat]}h allocated` : " (no allocation set)"}
-                    {over && " ⚠ Over"}
+                    {over && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", color: "#ef4444" }}>
+                        <AlertTriangle size={11} strokeWidth={2.5} /> Over
+                      </span>
+                    )}
                   </span>
                 </div>
-                <div style={{ height: "8px", borderRadius: "99px", background: "rgba(196,181,253,0.15)", overflow: "hidden" }}>
+                <div style={{ height: "8px", borderRadius: "99px", background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(196,181,253,0.15)", overflow: "hidden" }}>
                   <div style={{
                     height: "100%", borderRadius: "99px",
                     width: allocated > 0 ? `${pct}%` : (actual > 0 ? "100%" : "0%"),
@@ -136,6 +146,8 @@ function StableChartContainer({ children, height }) {
 }
 
 export default function AnalyticsPage() {
+  const { user } = useAuth();
+  const { darkMode } = useTheme();
   // CHANGE #13: member selector
   const [selectedUserId, setSelectedUserId] = useState("");
   const { users } = useUsers();
@@ -192,9 +204,9 @@ export default function AnalyticsPage() {
   const uniqueCategories = [...new Set(allCategories)];
 
   const summaryCards = [
-    { label: "Total time tracked",  value: `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`, color: "#818cf8", bg: "rgba(238,242,255,0.7)", border: "rgba(196,181,253,0.3)" },
-    { label: "Team members",        value: uniqueUsers.length,  color: "#c084fc", bg: "rgba(250,245,255,0.7)", border: "rgba(233,213,255,0.4)" },
-    { label: "Active days",         value: uniqueDays.length,   color: "#34d399", bg: "rgba(236,253,245,0.7)", border: "rgba(110,231,183,0.3)" },
+    { label: "Total time tracked",  value: `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`, color: darkMode ? "#a78bfa" : "#818cf8", bg: darkMode ? "rgba(139,92,246,0.15)" : "rgba(238,242,255,0.7)", border: darkMode ? "rgba(139,92,246,0.3)" : "rgba(196,181,253,0.3)" },
+    { label: "Team members",        value: uniqueUsers.length,  color: darkMode ? "#c084fc" : "#c084fc", bg: darkMode ? "rgba(192,132,252,0.15)" : "rgba(250,245,255,0.7)", border: darkMode ? "rgba(192,132,252,0.3)" : "rgba(233,213,255,0.4)" },
+    { label: "Active days",         value: uniqueDays.length,   color: darkMode ? "#34d399" : "#34d399", bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.7)", border: darkMode ? "rgba(16,185,129,0.3)" : "rgba(110,231,183,0.3)" },
   ];
 
   // CHANGE #12: Legend for bar chart person colours
@@ -207,9 +219,9 @@ export default function AnalyticsPage() {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "28px", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>Workspace insights</p>
-            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
-              Analytics ✦
+            <p style={{ fontSize: "13px", color: "var(--accent-purple)", fontWeight: 500, margin: "0 0 4px" }}>Workspace insights</p>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "var(--text-main)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              Analytics <Sparkles size={18} color="var(--accent-purple)" style={{ flexShrink: 0 }} />
             </h1>
           </div>
 
@@ -220,9 +232,11 @@ export default function AnalyticsPage() {
               onChange={e => setSelectedUserId(e.target.value)}
               style={{
                 padding: "8px 32px 8px 14px", borderRadius: "12px", fontSize: "13px", fontWeight: 500,
-                background: selectedUserId ? "rgba(233,213,255,0.4)" : "rgba(255,255,255,0.85)",
-                border: selectedUserId ? "1px solid rgba(196,181,253,0.6)" : "1px solid rgba(196,181,253,0.3)",
-                color: selectedUserId ? "#7c3aed" : "#4b5563",
+                background: selectedUserId ? (darkMode ? "rgba(139,92,246,0.15)" : "rgba(233,213,255,0.4)") : "var(--bg-card)",
+                border: selectedUserId 
+                  ? (darkMode ? "1px solid rgba(167, 139, 250, 0.5)" : "1px solid rgba(124, 58, 237, 0.5)") 
+                  : "1px solid var(--border-dim)",
+                color: selectedUserId ? "var(--accent-purple)" : "var(--text-muted)",
                 cursor: "pointer", outline: "none", appearance: "none",
                 fontFamily: "inherit", backdropFilter: "blur(8px)"
               }}
@@ -233,7 +247,7 @@ export default function AnalyticsPage() {
               ))}
             </select>
             <svg style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M2 3.5L5 6.5L8 3.5" stroke={selectedUserId ? "#a78bfa" : "#9ca3af"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 3.5L5 6.5L8 3.5" stroke={selectedUserId ? "var(--accent-purple)" : "var(--text-muted)"} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         </div>
@@ -251,9 +265,11 @@ export default function AnalyticsPage() {
           </div>
         ) : data.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0" }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>📊</div>
-            <p style={{ fontSize: "15px", color: "#9ca3af" }}>No analytics data yet</p>
-            <p style={{ fontSize: "13px", color: "#c4b5fd" }}>Create and schedule some tasks to see insights here</p>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px", color: darkMode ? "rgba(167, 139, 250, 0.6)" : "rgba(124, 58, 237, 0.6)" }}>
+              <BarChart2 size={42} strokeWidth={1.2} />
+            </div>
+            <p style={{ fontSize: "15px", color: "var(--text-muted)" }}>No analytics data yet</p>
+            <p style={{ fontSize: "13px", color: "var(--accent-purple)" }}>Create and schedule some tasks to see insights here</p>
           </div>
         ) : (
           <>
@@ -275,17 +291,18 @@ export default function AnalyticsPage() {
               allocatedHours={allocatedHours}
               weeklyActualMinutes={weeklyActualMinutes}
               categories={allCategories}
+              darkMode={darkMode}
             />
 
             {/* Main Weekly Category Chart */}
             <div style={{
-              background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-              border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
+              background: "var(--bg-card)", backdropFilter: "blur(8px)",
+              border: "1px solid var(--border-dim)", borderRadius: "18px",
               padding: "24px", marginBottom: "20px",
-              boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+              boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.05)"
             }}>
-              <p style={{ fontSize: "14px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
-                Weekly Hours by Category <span style={{ color: "#c4b5fd", fontWeight: 400 }}>(Total)</span>
+              <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-main)", margin: "0 0 16px" }}>
+                Weekly Hours by Category <span style={{ color: "var(--accent-purple)", fontWeight: 400 }}>(Total)</span>
               </p>
               <StableChartContainer height={300}>
                 {(width, height) => (
@@ -299,10 +316,10 @@ export default function AnalyticsPage() {
                       label={({ name, value }) => `${name} ${value}h`}
                     >
                       {pieData.map(entry => (
-                        <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#c4b5fd"} />
+                        <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || (darkMode ? "#4b5563" : "#c4b5fd")} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(val) => [`${val}h`, "Hours"]} />
+                    <Tooltip content={<CustomTooltip darkMode={darkMode} />} />
                     <Legend />
                   </PieChart>
                 )}
@@ -311,10 +328,10 @@ export default function AnalyticsPage() {
 
             {/* Per-User Category Breakdown (Multiple Pie Charts) */}
             <div style={{ marginBottom: "24px" }}>
-              <p style={{ fontSize: "14px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
-                Individual Member Breakdown <span style={{ color: "#c4b5fd", fontWeight: 400 }}>(Hours by Category)</span>
+              <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-main)", margin: "0 0 16px" }}>
+                Individual Member Breakdown <span style={{ color: "var(--accent-purple)", fontWeight: 400 }}>(Hours by Category)</span>
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
                 {personLegend.map(({ key, name }) => {
                   const userEntries = data.filter(e => String(e.userId || e.userName) === key);
                   const userCategoryTotals = {};
@@ -334,30 +351,61 @@ export default function AnalyticsPage() {
 
                   return (
                     <div key={key} style={{
-                      background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-                      border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-                      padding: "16px", boxShadow: "0 2px 8px rgba(139,92,246,0.04)"
+                      background: "var(--bg-card)", backdropFilter: "blur(8px)",
+                      border: "1px solid var(--border-dim)", borderRadius: "18px",
+                      padding: "20px 18px", boxShadow: darkMode ? "none" : "0 2px 8px rgba(139,92,246,0.04)",
+                      display: "flex", flexDirection: "column", gap: "12px"
                     }}>
-                      <p style={{ fontSize: "13px", fontWeight: 600, color: "#6d28d9", margin: "0 0 12px", textAlign: "center" }}>{name}</p>
-                      <StableChartContainer height={220}>
+                      {/* Member name */}
+                      <p style={{ fontSize: "13px", fontWeight: 600, color: "#6d28d9", margin: 0, textAlign: "center" }}>{name}</p>
+
+                      {/* Pie chart — NO inline labels to prevent clipping */}
+                      <StableChartContainer height={190}>
                         {(width, height) => (
                           <PieChart width={width} height={height}>
                             <Pie
                               data={userPieData}
-                              cx="51%" cy="50%"
-                              innerRadius={40} outerRadius={70}
-                              paddingAngle={2}
+                              cx="50%" cy="50%"
+                              innerRadius={45} outerRadius={75}
+                              paddingAngle={3}
                               dataKey="value"
-                              label={({ name, value }) => `${name} ${value}h`}
                             >
                               {userPieData.map(entry => (
-                                <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || "#c4b5fd"} />
+                                <Cell key={entry.name} fill={CATEGORY_COLORS[entry.name] || (darkMode ? "#4b5563" : "#c4b5fd")} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(val) => [`${val}h`, "Hours"]} />
+                            <Tooltip
+                              content={<CustomTooltip darkMode={darkMode} />}
+                            />
                           </PieChart>
                         )}
                       </StableChartContainer>
+
+                      {/* Clean legend list below pie */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {userPieData.map(entry => {
+                          const color = CATEGORY_COLORS[entry.name] || "#c4b5fd";
+                          const total = userPieData.reduce((s, e) => s + e.value, 0);
+                          const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0;
+                          return (
+                            <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <div style={{
+                                width: "10px", height: "10px", borderRadius: "3px",
+                                background: color, flexShrink: 0
+                              }} />
+                              <span style={{ fontSize: "12px", color: "var(--text-main)", flex: 1, fontWeight: 500 }}>
+                                {entry.name}
+                              </span>
+                              <span style={{ fontSize: "12px", color: "var(--accent-purple)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                {entry.value}h
+                              </span>
+                              <span style={{ fontSize: "11px", color: "var(--text-muted)", minWidth: "32px", textAlign: "right" }}>
+                                {pct}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
@@ -366,22 +414,22 @@ export default function AnalyticsPage() {
 
             {/* Bottom row: breakdown table */}
             <div style={{
-              background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-              border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-              padding: "24px", boxShadow: "0 2px 12px rgba(139,92,246,0.05)"
+              background: "var(--bg-card)", backdropFilter: "blur(8px)",
+              border: "1px solid var(--border-dim)", borderRadius: "18px",
+              padding: "24px", boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.05)"
             }}>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#4b5563", margin: "0 0 16px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-main)", margin: "0 0 16px" }}>
                 Detailed performance log
               </p>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(196,181,253,0.2)" }}>
-                      {["Member", "Date", "Minutes"].map((h, i) => (
+                    <tr style={{ borderBottom: "1px solid var(--border-dim)" }}>
+                      {["Member", "Date", "Minutes"].map((h, j) => (
                         <th key={h} style={{
-                          fontSize: "11px", fontWeight: 600, color: "#c4b5fd",
+                          fontSize: "11px", fontWeight: 600, color: "var(--accent-purple)",
                           padding: "0 0 10px",
-                          textAlign: i === 2 ? "right" : "left",
+                          textAlign: j === 2 ? "right" : "left",
                           letterSpacing: "0.05em", textTransform: "uppercase"
                         }}>
                           {h}
@@ -396,17 +444,17 @@ export default function AnalyticsPage() {
                       return (
                         <tr
                           key={i}
-                          style={{ borderBottom: "1px solid rgba(196,181,253,0.08)", transition: "background 0.1s" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "rgba(233,213,255,0.15)"}
+                          style={{ borderBottom: "1px solid var(--border-dim)", transition: "background 0.1s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.03)" : "rgba(233,213,255,0.15)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          <td style={{ padding: "10px 0", fontSize: "13px", color: "#4b5563", fontWeight: 500 }}>
+                          <td style={{ padding: "10px 0", fontSize: "13px", color: "var(--text-main)", fontWeight: 500 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                               <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: color, flexShrink: 0 }} />
                               {entry.userName}
                             </div>
                           </td>
-                          <td style={{ padding: "10px 0", fontSize: "12px", color: "#9ca3af" }}>
+                          <td style={{ padding: "10px 0", fontSize: "12px", color: "var(--text-muted)" }}>
                             {dayjs(entry.date).format("MMM D, YYYY")}
                           </td>
                           <td style={{ padding: "10px 0", fontSize: "13px", fontWeight: 700, color, textAlign: "right" }}>

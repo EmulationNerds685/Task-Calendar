@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import api from "../../api/axios";
 import useSettings from "../../hooks/useSettings";
+import { useTheme } from "../../context/ThemeContext";
+import { Check, Sparkles } from "lucide-react";
 
 /*
  CHANGE #4: Admin settings panel.
@@ -9,19 +11,21 @@ import useSettings from "../../hooks/useSettings";
  CHANGE #14: Set weekly allocated hours per category.
 */
 
-const inputStyle = {
+const getInputStyle = (darkMode) => ({
   padding: "8px 12px", borderRadius: "10px", fontSize: "13px", fontFamily: "inherit",
-  background: "#fafafa", border: "1.5px solid #e5e7eb",
-  outline: "none", color: "#1f2937", transition: "border-color 0.15s",
+  background: darkMode ? "rgba(255,255,255,0.03)" : "#fafafa", 
+  border: darkMode ? "1.5px solid rgba(255,255,255,0.1)" : "1.5px solid #e5e7eb",
+  outline: "none", color: "var(--text-main)", transition: "border-color 0.15s",
   boxSizing: "border-box"
-};
+});
 
 // Reusable tag-list editor: shows current values as pills, can add/rename/remove
-function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed", accent = "rgba(233,213,255,0.4)" }) {
+function TagListEditor({ title, description, items, onUpdate, darkMode, color = "var(--accent-purple)", accent = "rgba(139,92,246,0.15)" }) {
   const [draft, setDraft] = useState("");
   const [editingIdx, setEditingIdx] = useState(null);
   const [editingVal, setEditingVal] = useState("");
   const [saving, setSaving] = useState(false);
+  const inputStyle = getInputStyle(darkMode);
 
   const add = async () => {
     const trimmed = draft.trim();
@@ -51,15 +55,15 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-      border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-      padding: "22px 24px", boxShadow: "0 2px 12px rgba(139,92,246,0.04)"
+      background: "var(--bg-card)", backdropFilter: "blur(8px)",
+      border: "1px solid var(--border-dim)", borderRadius: "18px",
+      padding: "22px 24px", boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.04)"
     }}>
       <div style={{ marginBottom: "16px" }}>
-        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: 700, color: "#1e1b4b", margin: "0 0 4px" }}>
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: 700, color: "var(--text-main)", margin: "0 0 4px" }}>
           {title}
         </h3>
-        {description && <p style={{ fontSize: "12px", color: "#9ca3af", margin: 0 }}>{description}</p>}
+        {description && <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>{description}</p>}
       </div>
 
       {/* Current items */}
@@ -68,7 +72,7 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
           <div key={idx} style={{
             display: "flex", alignItems: "center", gap: "6px",
             padding: "5px 10px", borderRadius: "99px",
-            background: accent, border: "1px solid rgba(196,181,253,0.35)"
+            background: accent, border: "1px solid var(--border-dim)"
           }}>
             {editingIdx === idx ? (
               <input
@@ -79,7 +83,7 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
                 onBlur={() => saveEdit(idx)}
                 style={{
                   ...inputStyle, padding: "2px 6px", fontSize: "12px",
-                  background: "white", minWidth: "80px", maxWidth: "160px"
+                  background: darkMode ? "rgba(0,0,0,0.2)" : "white", minWidth: "80px", maxWidth: "160px"
                 }}
               />
             ) : (
@@ -95,12 +99,13 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
               onClick={() => remove(idx)}
               style={{
                 width: "16px", height: "16px", borderRadius: "50%", border: "none",
-                background: "rgba(196,181,253,0.3)", color: "#a78bfa", fontSize: "10px",
+                background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(196,181,253,0.3)", 
+                color: "var(--accent-purple)", fontSize: "10px",
                 cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                 lineHeight: 1, padding: 0, transition: "background 0.15s"
               }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(252,165,165,0.4)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(196,181,253,0.3)"}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? "rgba(239,68,68,0.2)" : "rgba(252,165,165,0.4)"}
+              onMouseLeave={e => e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.08)" : "rgba(196,181,253,0.3)"}
               title="Remove"
             >
               ×
@@ -108,7 +113,7 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
           </div>
         ))}
         {items.length === 0 && (
-          <span style={{ fontSize: "12px", color: "#d1d5db", padding: "6px 0" }}>No items yet</span>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)", padding: "6px 0" }}>No items yet</span>
         )}
       </div>
 
@@ -121,8 +126,8 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
           onKeyDown={e => { if (e.key === "Enter") add(); }}
           placeholder={`Add new ${title.toLowerCase().replace(/s$/, "")}…`}
           style={{ ...inputStyle, flex: 1 }}
-          onFocus={e => e.target.style.borderColor = "#c084fc"}
-          onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+          onFocus={e => e.target.style.borderColor = "var(--accent-purple)"}
+          onBlur={e => e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"}
         />
         <button
           onClick={add}
@@ -143,7 +148,8 @@ function TagListEditor({ title, description, items, onUpdate, color = "#7c3aed",
 }
 
 // CHANGE #14: Allocated hours editor per category
-function AllocatedHoursEditor({ categories, allocatedHours, onUpdate }) {
+function AllocatedHoursEditor({ categories, allocatedHours, onUpdate, darkMode }) {
+  const inputStyle = getInputStyle(darkMode);
   const [draft, setDraft] = useState({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -172,26 +178,26 @@ function AllocatedHoursEditor({ categories, allocatedHours, onUpdate }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)",
-      border: "1px solid rgba(196,181,253,0.18)", borderRadius: "18px",
-      padding: "22px 24px", boxShadow: "0 2px 12px rgba(139,92,246,0.04)"
+      background: "var(--bg-card)", backdropFilter: "blur(8px)",
+      border: "1px solid var(--border-dim)", borderRadius: "18px",
+      padding: "22px 24px", boxShadow: darkMode ? "none" : "0 2px 12px rgba(139,92,246,0.04)"
     }}>
       <div style={{ marginBottom: "16px" }}>
-        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: 700, color: "#1e1b4b", margin: "0 0 4px" }}>
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: "16px", fontWeight: 700, color: "var(--text-main)", margin: "0 0 4px" }}>
           Weekly allocated hours
         </h3>
-        <p style={{ fontSize: "12px", color: "#9ca3af", margin: 0 }}>
+        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
           Set target hours per category per week — used in the analytics allocated vs actual chart.
         </p>
       </div>
 
       {categories.length === 0 ? (
-        <p style={{ fontSize: "12px", color: "#d1d5db" }}>No categories defined yet.</p>
+        <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>No categories defined yet.</p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px", marginBottom: "16px" }}>
           {categories.map(cat => (
             <div key={cat}>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4b5563", marginBottom: "5px" }}>
+              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--text-main)", marginBottom: "5px" }}>
                 {cat}
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -203,10 +209,10 @@ function AllocatedHoursEditor({ categories, allocatedHours, onUpdate }) {
                   onChange={e => setDraft(d => ({ ...d, [cat]: e.target.value }))}
                   placeholder="hrs"
                   style={{ ...inputStyle, width: "90px" }}
-                  onFocus={e => e.target.style.borderColor = "#c084fc"}
-                  onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+                  onFocus={e => e.target.style.borderColor = "var(--accent-purple)"}
+                  onBlur={e => e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"}
                 />
-                <span style={{ fontSize: "12px", color: "#9ca3af" }}>hrs / week</span>
+                <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>hrs / week</span>
               </div>
             </div>
           ))}
@@ -218,20 +224,25 @@ function AllocatedHoursEditor({ categories, allocatedHours, onUpdate }) {
         disabled={saving || categories.length === 0}
         style={{
           padding: "9px 22px", borderRadius: "11px", fontSize: "13px", fontWeight: 600,
-          background: saved ? "rgba(236,253,245,0.9)" : "linear-gradient(135deg, #c084fc, #818cf8)",
+          background: saved ? (darkMode ? "rgba(16,185,129,0.2)" : "rgba(236,253,245,0.9)") : "linear-gradient(135deg, #c084fc, #818cf8)",
           border: saved ? "1px solid rgba(110,231,183,0.5)" : "none",
-          color: saved ? "#10b981" : "white",
+          color: saved ? (darkMode ? "#34d399" : "#10b981") : "white",
           cursor: saving || categories.length === 0 ? "not-allowed" : "pointer",
           opacity: saving ? 0.7 : 1, transition: "all 0.2s", fontFamily: "inherit"
         }}
       >
-        {saved ? "✓ Saved" : saving ? "Saving…" : "Save allocations"}
+        {saved ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+            <Check size={14} strokeWidth={2.5} /> Saved
+          </span>
+        ) : saving ? "Saving…" : "Save allocations"}
       </button>
     </div>
   );
 }
 
 export default function SettingsPage() {
+  const { darkMode } = useTheme();
   const { settings, loading, refetch } = useSettings();
   const [globalError, setGlobalError] = useState("");
   const [globalSuccess, setGlobalSuccess] = useState("");
@@ -258,20 +269,20 @@ export default function SettingsPage() {
 
         {/* Header */}
         <div style={{ marginBottom: "28px" }}>
-          <p style={{ fontSize: "13px", color: "#a78bfa", fontWeight: 500, margin: "0 0 4px" }}>Admin only</p>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
-            Settings ✦
+          <p style={{ fontSize: "13px", color: "var(--accent-purple)", fontWeight: 500, margin: "0 0 4px" }}>Admin only</p>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "26px", fontWeight: 700, color: "var(--text-main)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+            Settings <Sparkles size={18} color="var(--accent-purple)" style={{ flexShrink: 0 }} />
           </h1>
         </div>
 
         {globalError && (
-          <div style={{ marginBottom: "16px", padding: "12px 16px", background: "rgba(254,242,242,0.8)", border: "1px solid rgba(252,165,165,0.4)", borderRadius: "12px", fontSize: "13px", color: "#be123c" }}>
+          <div style={{ marginBottom: "16px", padding: "12px 16px", background: darkMode ? "rgba(239,68,68,0.1)" : "rgba(254,242,242,0.8)", border: "1px solid rgba(252,165,165,0.4)", borderRadius: "12px", fontSize: "13px", color: "#ef4444" }}>
             {globalError}
           </div>
         )}
         {globalSuccess && (
-          <div style={{ marginBottom: "16px", padding: "12px 16px", background: "rgba(236,253,245,0.8)", border: "1px solid rgba(110,231,183,0.4)", borderRadius: "12px", fontSize: "13px", color: "#065f46", display: "flex", alignItems: "center", gap: "8px" }}>
-            <span>✓</span> {globalSuccess}
+          <div style={{ marginBottom: "16px", padding: "12px 16px", background: darkMode ? "rgba(16,185,129,0.1)" : "rgba(236,253,245,0.8)", border: "1px solid rgba(110,231,183,0.4)", borderRadius: "12px", fontSize: "13px", color: "#34d399", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Check size={14} strokeWidth={2.5} /> {globalSuccess}
           </div>
         )}
 
@@ -286,8 +297,9 @@ export default function SettingsPage() {
             {/* Hint banner */}
             <div style={{
               padding: "14px 18px", borderRadius: "14px",
-              background: "rgba(238,242,255,0.7)", border: "1px solid rgba(196,181,253,0.25)",
-              fontSize: "13px", color: "#6366f1", lineHeight: 1.6
+              background: darkMode ? "rgba(139,92,246,0.1)" : "rgba(238,242,255,0.7)", 
+              border: "1px solid var(--border-dim)",
+              fontSize: "13px", color: "var(--accent-purple)", lineHeight: 1.6
             }}>
               <strong>Tip:</strong> Click any tag label to rename it inline. Changes apply immediately across all dropdowns in TaskForm and Filters.
             </div>
@@ -298,6 +310,7 @@ export default function SettingsPage() {
               description="Task categories shown in forms and filters."
               items={settings.categories}
               onUpdate={cats => patch({ categories: cats })}
+              darkMode={darkMode}
             />
 
             {/* Statuses */}
@@ -306,8 +319,9 @@ export default function SettingsPage() {
               description="Task status options. Removing a status won't change existing tasks."
               items={settings.statuses}
               onUpdate={statuses => patch({ statuses })}
-              color="#6366f1"
-              accent="rgba(238,242,255,0.6)"
+              color="var(--accent-purple)"
+              accent={darkMode ? "rgba(99,102,241,0.15)" : "rgba(238,242,255,0.6)"}
+              darkMode={darkMode}
             />
 
             {/* Priorities */}
@@ -317,7 +331,8 @@ export default function SettingsPage() {
               items={settings.priorities}
               onUpdate={priorities => patch({ priorities })}
               color="#f59e0b"
-              accent="rgba(255,251,235,0.6)"
+              accent={darkMode ? "rgba(245,158,11,0.15)" : "rgba(255,251,235,0.6)"}
+              darkMode={darkMode}
             />
 
             {/* CHANGE #14: Allocated hours */}
@@ -325,6 +340,7 @@ export default function SettingsPage() {
               categories={settings.categories}
               allocatedHours={settings.allocatedHours}
               onUpdate={allocatedHours => patch({ allocatedHours })}
+              darkMode={darkMode}
             />
 
           </div>

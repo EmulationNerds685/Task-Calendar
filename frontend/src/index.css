@@ -1,6 +1,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-purple-50: #faf5ff;
+  --color-purple-100: #f3e8ff;
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+}
+
+:root {
+  --bg-primary: #faf8ff;
+  --bg-sidebar: rgba(255, 255, 255, 0.9);
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-modal: rgba(255, 255, 255, 0.97);
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --text-label: #1e1b4b;
+  --border-dim: rgba(196, 181, 253, 0.2);
+  --accent-purple: #7c3aed;
+  --accent-indigo: #818cf8;
+}
+
+.dark {
+  --bg-primary: #0f172a;
+  --bg-sidebar: rgba(15, 23, 42, 0.9);
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --bg-modal: rgba(15, 23, 42, 0.98);
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-label: #e2e8f0;
+  --border-dim: rgba(139, 92, 246, 0.15);
+  --accent-purple: #a78bfa;
+  --accent-indigo: #94a3b8;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -9,4 +42,41 @@ body {
   font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Big Calendar Dark Mode Overrides */
+.dark .rbc-calendar {
+  color: var(--text-main);
+}
+.dark .rbc-off-range-bg {
+  background: rgba(30, 41, 59, 0.3);
+}
+.dark .rbc-today {
+  background: rgba(139, 92, 246, 0.1);
+}
+.dark .rbc-header {
+  border-bottom: 1px solid var(--border-dim);
+  color: var(--text-muted);
+}
+.dark .rbc-day-bg {
+  border-left: 1px solid var(--border-dim);
+}
+.dark .rbc-month-row {
+  border-top: 1px solid var(--border-dim);
+}
+.dark .rbc-event {
+  background-color: var(--accent-purple);
+  opacity: 0.9;
+}
+.dark .rbc-time-view, .dark .rbc-agenda-view {
+  border: 1px solid var(--border-dim);
+}
+.dark .rbc-timeslot-group {
+  border-bottom: 1px solid var(--border-dim);
+}
+.dark .rbc-time-content > * + * > *, .dark .rbc-time-header-content {
+  border-left: 1px solid var(--border-dim);
 }

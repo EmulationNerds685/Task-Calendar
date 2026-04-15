@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useTheme } from "../context/ThemeContext";
 import dayjs from "dayjs";
 import api from "../api/axios";
 import useUsers from "../hooks/useUsers";
 import useSettings from "../hooks/useSettings";
 import ConflictToast from "./ConflictToast";
+import { AlertTriangle, Lightbulb, FileText, Link2, Paperclip } from "lucide-react";
 
 // Fields a member can set when creating their own task
 const MEMBER_EDITABLE_CREATE = ["title", "description", "dueDate", "estimatedTime", "status", "referenceLinks", "assignedTo", "priority", "category", "attachments", "force", "startDate"];
@@ -25,37 +28,37 @@ const EMPTY_FORM = {
   attachments:    [],
 };
 
-const priorityMeta = {
-  High:   { dot: "#ef4444", bg: "rgba(254,242,242,0.7)", activeBorder: "rgba(252,165,165,0.6)", activeText: "#ef4444" },
-  Medium: { dot: "#f59e0b", bg: "rgba(255,251,235,0.7)", activeBorder: "rgba(253,211,77,0.6)",  activeText: "#f59e0b" },
-  Low:    { dot: "#10b981", bg: "rgba(236,253,245,0.7)", activeBorder: "rgba(110,231,183,0.6)", activeText: "#10b981" },
-};
+const getPriorityMeta = (darkMode) => ({
+  High:   { dot: "#ef4444", bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.7)", activeBorder: darkMode ? "rgba(239,68,68,0.3)" : "rgba(252,165,165,0.6)", activeText: "#ef4444" },
+  Medium: { dot: "#f59e0b", bg: darkMode ? "rgba(245,158,11,0.15)" : "rgba(255,251,235,0.7)", activeBorder: darkMode ? "rgba(245,158,11,0.3)" : "rgba(253,211,77,0.6)",  activeText: "#f59e0b" },
+  Low:    { dot: "#10b981", bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.7)", activeBorder: darkMode ? "rgba(16,185,129,0.3)" : "rgba(110,231,183,0.6)", activeText: "#10b981" },
+});
 
-const statusColors = {
-  "Not Started": { bg: "#f1f5f9",               text: "#64748b", activeBorder: "#94a3b8" },
-  "In Progress":  { bg: "rgba(238,242,255,0.8)", text: "#6366f1", activeBorder: "#818cf8" },
-  "Completed":    { bg: "rgba(236,253,245,0.8)", text: "#10b981", activeBorder: "#34d399" },
-  "Overdue":      { bg: "rgba(254,242,242,0.8)", text: "#ef4444", activeBorder: "#f87171" },
-};
+const getStatusColors = (darkMode) => ({
+  "Not Started": { bg: darkMode ? "rgba(71,85,105,0.3)" : "#f1f5f9",               text: darkMode ? "#94a3b8" : "#64748b", activeBorder: darkMode ? "#475569" : "#94a3b8" },
+  "In Progress":  { bg: darkMode ? "rgba(99,102,241,0.15)" : "rgba(238,242,255,0.8)", text: darkMode ? "#818cf8" : "#6366f1", activeBorder: "#818cf8" },
+  "Completed":    { bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.8)", text: darkMode ? "#34d399" : "#10b981", activeBorder: "#34d399" },
+  "Overdue":      { bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.8)", text: darkMode ? "#f87171" : "#ef4444", activeBorder: "#f87171" },
+});
 
-const inputStyle = (disabled = false) => ({
+const inputStyle = (disabled = false, darkMode = false) => ({
   width: "100%", padding: "9px 13px", fontSize: "13px", fontFamily: "inherit",
-  background: disabled ? "rgba(249,250,251,0.6)" : "#fafafa",
-  border: "1.5px solid #e5e7eb", borderRadius: "11px",
-  outline: "none", color: disabled ? "#9ca3af" : "#1f2937",
+  background: disabled ? (darkMode ? "rgba(255,255,255,0.02)" : "rgba(249,250,251,0.6)") : (darkMode ? "rgba(255,255,255,0.03)" : "#fafafa"),
+  border: darkMode ? "1.5px solid rgba(255,255,255,0.1)" : "1.5px solid #e5e7eb", borderRadius: "11px",
+  outline: "none", color: disabled ? (darkMode ? "#475569" : "#9ca3af") : "var(--text-main)",
   transition: "border-color 0.15s", boxSizing: "border-box",
   cursor: disabled ? "not-allowed" : "text",
 });
 
-const Label = ({ children, required }) => (
-  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4b5563", marginBottom: "6px" }}>
+const Label = ({ children, required, darkMode }) => (
+  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: darkMode ? "#94a3b8" : "#4b5563", marginBottom: "6px" }}>
     {children}
     {required && <span style={{ color: "#f87171", marginLeft: "3px" }}>*</span>}
   </label>
 );
 
 // Reusable member picker used by both admin (assignedTo) and member (share)
-function MemberPicker({ users, selectedIds, onToggle, excludeIds = [] }) {
+function MemberPicker({ users, selectedIds, onToggle, excludeIds = [], darkMode }) {
   const visible = users.filter(u => !excludeIds.includes(u._id));
   if (visible.length === 0) {
     return <p style={{ fontSize: "12px", color: "#d1d5db", padding: "6px 0" }}>No other members available</p>;
@@ -73,8 +76,8 @@ function MemberPicker({ users, selectedIds, onToggle, excludeIds = [] }) {
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               padding: "8px 12px", borderRadius: "10px", cursor: "pointer",
-              border: isSelected ? "1.5px solid rgba(196,181,253,0.6)" : "1.5px solid #e5e7eb",
-              background: isSelected ? "rgba(233,213,255,0.4)" : "rgba(249,250,251,0.6)",
+              border: isSelected ? "1.5px solid rgba(196,181,253,0.6)" : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
+              background: isSelected ? (darkMode ? "rgba(139,92,246,0.15)" : "rgba(233,213,255,0.4)") : (darkMode ? "rgba(255,255,255,0.02)" : "rgba(249,250,251,0.6)"),
               transition: "all 0.15s", textAlign: "left",
             }}
           >
@@ -87,7 +90,7 @@ function MemberPicker({ users, selectedIds, onToggle, excludeIds = [] }) {
               {initials}
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: "13px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "#4c1d95" : "#4b5563" }}>
+              <p style={{ margin: 0, fontSize: "13px", fontWeight: isSelected ? 600 : 400, color: isSelected ? (darkMode ? "#c084fc" : "#4c1d95") : "var(--text-main)" }}>
                 {u.name}
               </p>
               <p style={{ margin: 0, fontSize: "11px", color: "#a78bfa", textTransform: "capitalize" }}>{u.role}</p>
@@ -107,10 +110,15 @@ function MemberPicker({ users, selectedIds, onToggle, excludeIds = [] }) {
 
 export default function TaskFormModal({ task, onClose, onSaved }) {
   const { user }     = useAuth();
+  const { darkMode } = useTheme();
+  const toast        = useToast();
   const { users }    = useUsers();
   const { settings } = useSettings();
   const isEdit       = !!task;
   const isAdmin      = user?.role === "admin";
+
+  const priorityMeta = getPriorityMeta(darkMode);
+  const statusColors = getStatusColors(darkMode);
 
   const [form, setForm]       = useState(EMPTY_FORM);
   const [error, setError]             = useState("");
@@ -210,7 +218,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
       }
 
       if (response.data.deadlineWarning) {
-        alert("⚠️ Heads up!\n" + response.data.deadlineWarning);
+        toast.warning(response.data.deadlineWarning, 6000);
       }
 
       onClose();
@@ -256,7 +264,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
   return (
     <div
       style={{
-        position: "fixed", inset: 0, background: "rgba(79,50,130,0.18)",
+        position: "fixed", inset: 0, background: darkMode ? "rgba(15, 23, 42, 0.4)" : "rgba(79,50,130,0.18)",
         backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
         justifyContent: "center", zIndex: 50, padding: "16px",
       }}
@@ -264,10 +272,10 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
     >
       <div
         style={{
-          background: "rgba(255,255,255,0.97)", backdropFilter: "blur(20px)",
+          background: "var(--bg-modal)", backdropFilter: "blur(20px)",
           borderRadius: "22px", width: "100%", maxWidth: "500px",
-          border: "1px solid rgba(196,181,253,0.25)",
-          boxShadow: "0 24px 64px rgba(109,40,217,0.12), 0 0 0 1px rgba(255,255,255,0.8)",
+          border: "1px solid var(--border-dim)",
+          boxShadow: darkMode ? "0 20px 50px rgba(0,0,0,0.4)" : "0 24px 64px rgba(109,40,217,0.12)",
           maxHeight: "90vh", overflowY: "auto",
         }}
         onClick={e => e.stopPropagation()}
@@ -276,23 +284,24 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "20px 24px 16px",
-          borderBottom: "1px solid rgba(196,181,253,0.15)",
-          background: "linear-gradient(135deg, rgba(250,245,255,0.8), rgba(238,242,255,0.4))",
+          borderBottom: "1px solid var(--border-dim)",
+          background: darkMode ? "rgba(255,255,255,0.02)" : "linear-gradient(135deg, rgba(250,245,255,0.8), rgba(238,242,255,0.4))",
           position: "sticky", top: 0, zIndex: 1, borderRadius: "22px 22px 0 0",
         }}>
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 700, color: "#1e1b4b", margin: 0 }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "18px", fontWeight: 700, color: "var(--text-main)", margin: 0 }}>
               {isEdit ? "Edit task" : "Create new task"}
             </h2>
-            <p style={{ fontSize: "12px", color: "#a78bfa", margin: "2px 0 0" }}>{subtitle}</p>
+            <p style={{ fontSize: "12px", color: "var(--accent-purple)", margin: "2px 0 0" }}>{subtitle}</p>
           </div>
           <button
             onClick={onClose}
             style={{
               width: "28px", height: "28px", borderRadius: "8px",
-              background: "rgba(196,181,253,0.15)", border: "1px solid rgba(196,181,253,0.25)",
+              background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(196,181,253,0.15)", 
+              border: "1px solid var(--border-dim)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "#a78bfa", fontSize: "16px",
+              cursor: "pointer", color: "var(--accent-purple)", fontSize: "16px",
             }}
           >×</button>
         </div>
@@ -312,14 +321,16 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               padding: "11px 14px", background: "rgba(255,251,235,0.8)",
               border: "1px solid rgba(253,211,77,0.4)", borderRadius: "11px",
               fontSize: "13px", color: "#92400e",
+              display: "flex", alignItems: "center", gap: "8px"
             }}>
-              ⚠️ {conflictWarning}
+              <AlertTriangle size={14} strokeWidth={2} style={{ flexShrink: 0, color: "#f59e0b" }} />
+              {conflictWarning}
             </div>
           )}
 
           {/* ── Title ─────────────────────────────────────────── */}
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <Label required>Title</Label>
+            <Label required darkMode={darkMode}>Title</Label>
             <input
               type="text"
               required
@@ -328,15 +339,15 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               value={form.title}
               onChange={e => handle("title", e.target.value)}
               placeholder="Task title"
-              style={{ ...inputStyle(!canEdit("title")), height: "40px" }}
-              onFocus={e => { if (canEdit("title")) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+              style={{ ...inputStyle(!canEdit("title"), darkMode), height: "40px" }}
+              onFocus={e => { if (canEdit("title")) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"}
             />
           </div>
 
           {/* ── Description ───────────────────────────────────── */}
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <Label>Description</Label>
+            <Label darkMode={darkMode}>Description</Label>
             <textarea
               name="description"
               disabled={!canEdit("description")}
@@ -344,23 +355,24 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               onChange={e => handle("description", e.target.value)}
               rows={3}
               placeholder="Optional description…"
-              style={{ ...inputStyle(!canEdit("description")), resize: "none", lineHeight: 1.6, minHeight: "80px" }}
-              onFocus={e => { if (canEdit("description")) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+              style={{ ...inputStyle(!canEdit("description"), darkMode), resize: "none", lineHeight: 1.6, minHeight: "80px" }}
+              onFocus={e => { if (canEdit("description")) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"}
             />
           </div>
 
           {/* ── Assigned to — Admin: full multi-select ────────── */}
           {isAdmin && (
             <div>
-              <Label required>Assigned to</Label>
-              <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 8px" }}>
+              <Label required darkMode={darkMode}>Assigned to</Label>
+              <p style={{ fontSize: "11px", color: "var(--accent-purple)", margin: "0 0 8px" }}>
                 Select one or more team members
               </p>
               <MemberPicker
                 users={users}
                 selectedIds={form.assignedTo}
                 onToggle={toggleAssignee}
+                darkMode={darkMode}
               />
             </div>
           )}
@@ -368,8 +380,8 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Also assign to — Member creating ──────────────── */}
           {!isAdmin && !isEdit && (
             <div>
-              <Label>Also assign to</Label>
-              <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 8px" }}>
+              <Label darkMode={darkMode}>Also assign to</Label>
+              <p style={{ fontSize: "11px", color: "var(--accent-purple)", margin: "0 0 8px" }}>
                 You're auto-assigned. Optionally add teammates too.
               </p>
               <MemberPicker
@@ -377,6 +389,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                 selectedIds={form.assignedTo}
                 onToggle={toggleAssignee}
                 excludeIds={[user?._id]}
+                darkMode={darkMode}
               />
             </div>
           )}
@@ -384,7 +397,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Priority ──────────────────────────────────────── */}
           {canEdit("priority") && (
             <div>
-              <Label>Priority</Label>
+              <Label darkMode={darkMode}>Priority</Label>
               <div style={{ display: "flex", gap: "8px" }}>
                 {PRIORITIES.map(({ val, dot, bg, activeBorder, activeText }) => {
                   const isActive = form.priority === val;
@@ -395,12 +408,12 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                       onClick={() => handle("priority", val)}
                       style={{
                         flex: 1, padding: "8px 0", borderRadius: "10px",
-                        background: isActive ? bg : "rgba(249,250,251,0.6)",
-                        border: isActive ? `1.5px solid ${activeBorder}` : "1.5px solid #e5e7eb",
+                        background: isActive ? bg : (darkMode ? "rgba(255,255,255,0.02)" : "rgba(249,250,251,0.6)"),
+                        border: isActive ? `1.5px solid ${activeBorder}` : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
                         cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                         fontSize: "12px", fontWeight: isActive ? 600 : 400,
-                        color: isActive ? activeText : "#9ca3af",
+                        color: isActive ? activeText : "var(--text-muted)",
                         transition: "all 0.15s",
                       }}
                     >
@@ -416,16 +429,18 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Category ──────────────────────────────────────── */}
           {canEdit("category") && (
             <div>
-              <Label>Category</Label>
+              <Label darkMode={darkMode}>Category</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 <button
                   type="button"
                   onClick={() => handle("category", "")}
                   style={{
                     padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
-                    border: !form.category ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
-                    background: !form.category ? "rgba(233,213,255,0.4)" : "transparent",
-                    color: !form.category ? "#7c3aed" : "#9ca3af",
+                    border: !form.category 
+                      ? (darkMode ? "1.5px solid rgba(167, 139, 250, 0.5)" : "1.5px solid rgba(124, 58, 237, 0.5)") 
+                      : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
+                    background: !form.category ? "rgba(139,92,246,0.15)" : "transparent",
+                    color: !form.category ? "var(--accent-purple)" : "var(--text-muted)",
                     cursor: "pointer", fontWeight: !form.category ? 600 : 400, transition: "all 0.15s",
                   }}
                 >
@@ -440,9 +455,11 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                       onClick={() => handle("category", cat)}
                       style={{
                         padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
-                        border: isActive ? "1.5px solid rgba(196,181,253,0.5)" : "1.5px solid #e5e7eb",
-                        background: isActive ? "rgba(233,213,255,0.4)" : "transparent",
-                        color: isActive ? "#7c3aed" : "#9ca3af",
+                        border: isActive 
+                          ? (darkMode ? "1.5px solid rgba(167, 139, 250, 0.5)" : "1.5px solid rgba(124, 58, 237, 0.5)") 
+                          : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
+                        background: isActive ? "rgba(139,92,246,0.15)" : "transparent",
+                        color: isActive ? "var(--accent-purple)" : "var(--text-muted)",
                         cursor: "pointer", fontWeight: isActive ? 600 : 400, transition: "all 0.15s",
                       }}
                     >
@@ -457,22 +474,22 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Schedule date + Estimated time ────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
-              <Label>Start Date (Preferred)</Label>
+              <Label darkMode={darkMode}>Start Date (Preferred)</Label>
               <input
                 type="date"
                 disabled={!canEdit("dueDate")}
                 value={form.startDate}
                 onChange={e => handle("startDate", e.target.value)}
-                style={inputStyle(!canEdit("dueDate"))}
+                style={inputStyle(!canEdit("dueDate"), darkMode)}
               />
             </div>
             <div>
-              <Label>Est. time (min)</Label>
+              <Label darkMode={darkMode}>Est. time (min)</Label>
               <select
                 disabled={!canEdit("estimatedTime")}
                 value={form.estimatedTime}
                 onChange={e => handle("estimatedTime", e.target.value)}
-                style={inputStyle(!canEdit("estimatedTime"))}
+                style={inputStyle(!canEdit("estimatedTime"), darkMode)}
               >
                 {Array.from({ length: 16 }, (_, i) => (i + 1) * 30).map(min => (
                   <option key={min} value={min}>{min} minutes {min % 60 === 0 ? `(${min / 60}h)` : ""}</option>
@@ -482,7 +499,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           </div>
 
           <div>
-            <Label required={canEdit("dueDate")}>Task Deadline</Label>
+            <Label required={canEdit("dueDate")} darkMode={darkMode}>Task Deadline</Label>
             <input
               type="date"
               required={canEdit("dueDate")}
@@ -490,9 +507,9 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               min={new Date().toISOString().split("T")[0]}
               value={form.dueDate}
               onChange={e => handle("dueDate", e.target.value)}
-              style={inputStyle(!canEdit("dueDate"))}
-              onFocus={e => { if (canEdit("dueDate")) e.target.style.borderColor = "#c084fc"; }}
-              onBlur={e => e.target.style.borderColor = "#e5e7eb"}
+              style={inputStyle(!canEdit("dueDate"), darkMode)}
+              onFocus={e => { if (canEdit("dueDate")) e.target.style.borderColor = "var(--accent-purple)"; }}
+              onBlur={e => e.target.style.borderColor = darkMode ? "rgba(255,255,255,0.1)" : "#e5e7eb"}
             />
           </div>
 
@@ -500,19 +517,22 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {canEdit("estimatedTime") && (
             <div style={{
               padding: "10px 14px", borderRadius: "10px",
-              background: "rgba(238,242,255,0.6)", border: "1px solid rgba(196,181,253,0.25)",
-              fontSize: "12px", color: "#6366f1", lineHeight: 1.6,
+              background: darkMode ? "rgba(99,102,241,0.12)" : "rgba(238,242,255,0.6)", 
+              border: "1px solid var(--border-dim)",
+              fontSize: "12px", color: darkMode ? "#818cf8" : "#6366f1", lineHeight: 1.6,
+              display: "flex", alignItems: "flex-start", gap: "8px"
             }}>
-              💡 <strong>Multi-day tasks:</strong> Every 480 min = 1 full working day. e.g. 960 min = 2 days on the calendar.
+              <Lightbulb size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: "2px" }} />
+              <span><strong>Multi-day tasks:</strong> Every 480 min = 1 full working day. e.g. 960 min = 2 days on the calendar.</span>
             </div>
           )}
 
           {/* ── Status ────────────────────────────────────────── */}
           <div>
-            <Label>Status</Label>
+            <Label darkMode={darkMode}>Status</Label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
               {settings.statuses.map(s => {
-                const sc       = statusColors[s] || { bg: "rgba(233,213,255,0.4)", text: "#7c3aed", activeBorder: "#c084fc" };
+                const sc       = statusColors[s] || { bg: "rgba(139,92,246,0.15)", text: "var(--accent-purple)", activeBorder: "rgba(139,92,246,0.3)" };
                 const isActive = form.status === s;
                 return (
                   <button
@@ -523,9 +543,9 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                     style={{
                       padding: "6px 12px", borderRadius: "10px", fontSize: "11px",
                       fontWeight: isActive ? 600 : 400,
-                      background: isActive ? sc.bg : "rgba(249,250,251,0.6)",
-                      border: isActive ? `1.5px solid ${sc.activeBorder}` : "1.5px solid #e5e7eb",
-                      color: isActive ? sc.text : "#9ca3af",
+                      background: isActive ? sc.bg : (darkMode ? "rgba(255,255,255,0.02)" : "rgba(249,250,251,0.6)"),
+                      border: isActive ? `1.5px solid ${sc.activeBorder}` : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
+                      color: isActive ? sc.text : "var(--text-muted)",
                       cursor: canEdit("status") ? "pointer" : "not-allowed",
                       opacity: canEdit("status") ? 1 : 0.5,
                       transition: "all 0.15s", textAlign: "center",
@@ -549,7 +569,9 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                   border: "1px solid rgba(196,181,253,0.3)", borderRadius: "10px",
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden" }}>
-                    <span style={{ fontSize: "16px" }}>{file.fileType === "file" ? "📄" : "🔗"}</span>
+                    <span style={{ display: "flex", alignItems: "center", color: "#7c3aed" }}>
+                      {file.fileType === "file" ? <FileText size={15} strokeWidth={1.8} /> : <Link2 size={15} strokeWidth={1.8} />}
+                    </span>
                     <span style={{ fontSize: "13px", color: "#4b5563", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {file.name}
                     </span>
@@ -568,13 +590,13 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                     placeholder="Link URL (https://...)"
                     value={newLink.url}
                     onChange={e => setNewLink({ ...newLink, url: e.target.value })}
-                    style={{ ...inputStyle(false), flex: 2, fontSize: "12px" }}
+                    style={{ ...inputStyle(false, darkMode), flex: 2, fontSize: "12px" }}
                   />
                   <input
                     placeholder="Tiny name (optional)"
                     value={newLink.name}
                     onChange={e => setNewLink({ ...newLink, name: e.target.value })}
-                    style={{ ...inputStyle(false), flex: 1, fontSize: "12px" }}
+                    style={{ ...inputStyle(false, darkMode), flex: 1, fontSize: "12px" }}
                   />
                   <button
                     type="button"
@@ -599,11 +621,12 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
 
                 <label style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                  padding: "10px", borderRadius: "12px", border: "1.5px dashed rgba(196,181,253,0.5)",
-                  background: "rgba(250,245,255,0.4)", color: "#7c3aed", fontSize: "12px",
+                  padding: "10px", borderRadius: "12px", border: darkMode ? "1.5px dashed rgba(255,255,255,0.15)" : "1.5px dashed rgba(196,181,253,0.5)",
+                  background: darkMode ? "rgba(255,255,255,0.02)" : "rgba(250,245,255,0.4)", color: "var(--accent-purple)", fontSize: "12px",
                   fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
                 }}>
-                  <span>📎 Upload File (Reference)</span>
+                  <Paperclip size={13} strokeWidth={2} />
+                  <span>Upload File (Reference)</span>
                   <input
                     type="file"
                     style={{ display: "none" }}
@@ -629,9 +652,10 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {!isAdmin && isEdit && (
             <div style={{
               padding: "16px", borderRadius: "14px",
-              background: "rgba(250,245,255,0.6)", border: "1px solid rgba(196,181,253,0.25)",
+              background: darkMode ? "rgba(255,255,255,0.02)" : "rgba(250,245,255,0.6)", 
+              border: "1px solid var(--border-dim)",
             }}>
-              <Label>Share with teammates</Label>
+              <Label darkMode={darkMode}>Share with teammates</Label>
               <p style={{ fontSize: "11px", color: "#a78bfa", margin: "0 0 10px" }}>
                 Add members to this task — they'll see it on their calendar too
               </p>
@@ -640,6 +664,7 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                 selectedIds={shareIds}
                 onToggle={toggleShareId}
                 excludeIds={currentAssigneeIds}
+                darkMode={darkMode}
               />
               {shareMsg && (
                 <p style={{
@@ -676,11 +701,11 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
               onClick={onClose}
               style={{
                 flex: 1, padding: "10px", borderRadius: "12px", fontSize: "13px", fontWeight: 500,
-                background: "transparent", border: "1px solid rgba(196,181,253,0.35)",
-                color: "#9ca3af", cursor: "pointer", transition: "all 0.15s",
+                background: "transparent", border: "1px solid var(--border-dim)",
+                color: "var(--text-muted)", cursor: "pointer", transition: "all 0.15s",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(233,213,255,0.2)"; e.currentTarget.style.color = "#7c3aed"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#9ca3af"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = darkMode ? "rgba(255,255,255,0.05)" : "rgba(233,213,255,0.2)"; e.currentTarget.style.color = "var(--accent-purple)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}
             >
               Cancel
             </button>

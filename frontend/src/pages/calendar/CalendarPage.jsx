@@ -103,7 +103,26 @@ export default function CalendarPage() {
   };
 
   const eventStyleGetter = useCallback((event) => {
+    const status   = event.resource?.task?.status;
     const priority = event.resource?.task?.priority;
+    const isCompleted = status === "Completed";
+
+    if (isCompleted) {
+      return {
+        style: {
+          backgroundColor: "rgba(243,244,246,0.9)",
+          borderLeft: "3px solid #d1d5db",
+          color: "#9ca3af",
+          borderRadius: "7px",
+          fontSize: "11px",
+          fontWeight: 600,
+          padding: "2px 7px",
+          opacity: 0.75,
+          textDecoration: "line-through",
+        },
+      };
+    }
+
     const pc = priorityConfig[priority] || { bg: "rgba(238,242,255,0.9)", color: "#818cf8", text: "#4338ca" };
     return {
       style: {

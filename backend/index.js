@@ -7,6 +7,7 @@ import taskRoutes from "./routes/taskRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js"; // CHANGE #4
+import notificationRoutes from "./routes/notificationRoutes.js";
 import startCronJobs from "./utils/cronJobs.js";
 
 import path from "path";
@@ -27,11 +28,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
-app.use("/api/auth",      authRoutes);
-app.use("/api/tasks",     taskRoutes);
-app.use("/api/calendar",  calendarRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/settings",  settingsRoutes); // CHANGE #4
+app.use("/api/auth",          authRoutes);
+app.use("/api/tasks",         taskRoutes);
+app.use("/api/calendar",      calendarRoutes);
+app.use("/api/analytics",     analyticsRoutes);
+app.use("/api/settings",      settingsRoutes); // CHANGE #4
+app.use("/api/notifications", notificationRoutes);
 
 const PORT = process.env.PORT || 5000;
 
