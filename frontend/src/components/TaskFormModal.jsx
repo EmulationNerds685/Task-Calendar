@@ -268,7 +268,6 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
         backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
         justifyContent: "center", zIndex: 50, padding: "16px",
       }}
-      onClick={onClose}
     >
       <div
         style={{
@@ -602,6 +601,10 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                     type="button"
                     onClick={() => {
                       if (!newLink.url) return;
+                      if (form.attachments.length >= 8) {
+                        setError("Maximum 8 attachments per task");
+                        return;
+                      }
                       handle("attachments", [...form.attachments, { 
                         name: newLink.name || newLink.url, 
                         url: newLink.url, 
@@ -625,21 +628,38 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
                   background: darkMode ? "rgba(255,255,255,0.02)" : "rgba(250,245,255,0.4)", color: "var(--accent-purple)", fontSize: "12px",
                   fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
                 }}>
-                  <Paperclip size={13} strokeWidth={2} />
-                  <span>Upload File (Reference)</span>
+                  <Paperclip size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <span>Upload File (Reference)</span>
+                    <span style={{ fontSize: "10px", opacity: 0.7, fontWeight: 400 }}>Max 5MB</span>
+                  </div>
                   <input
                     type="file"
                     style={{ display: "none" }}
+                    disabled={form.attachments.length >= 8}
                     onChange={async (e) => {
                       const file = e.target.files[0];
                       if (!file) return;
+
+                      // 1. Check file size (5MB limit)
+                      if (file.size > 5 * 1024 * 1024) {
+                        setError("File size exceeds 5MB limit");
+                        return;
+                      }
+
+                      // 2. Check attachment count (Max 8)
+                      if (form.attachments.length >= 8) {
+                        setError("Maximum 8 attachments per task");
+                        return;
+                      }
+
                       const formData = new FormData();
                       formData.append("file", file);
                       try {
                         const res = await api.post("/tasks/upload", formData);
                         handle("attachments", [...form.attachments, res.data]);
                       } catch (err) {
-                        setError("Failed to upload file");
+                        setError(err.response?.data?.message || "Failed to upload file");
                       }
                     }}
                   />

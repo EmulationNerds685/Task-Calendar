@@ -61,7 +61,6 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDeleted }) {
         backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
         justifyContent: "center", zIndex: 100, padding: "16px",
       }}
-      onClick={onClose}
     >
       <div
         style={{
