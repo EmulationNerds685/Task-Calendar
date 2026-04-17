@@ -208,7 +208,7 @@ export default function Register() {
                 <button
                   key={val}
                   type="button"
-                  onConfirm={() => handleChange("role", val)}
+                  onClick={() => handleChange("role", val)}
                   style={{
                     flex: 1, padding: "12px", borderRadius: "12px", textAlign: "left",
                     border: form.role === val ? "2px solid var(--accent-purple)" : "1.5px solid var(--border-dim)",
