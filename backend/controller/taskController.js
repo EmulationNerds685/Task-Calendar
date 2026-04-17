@@ -162,14 +162,37 @@ export const getTasks = async (req, res) => {
     const limitNum = Math.min(50, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
-    const [tasks, total] = await Promise.all([
+    const [tasks, total, stats] = await Promise.all([
       Task.find(filter)
         .populate("assignedTo", "name email")
         .populate("createdBy", "name email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
-      Task.countDocuments(filter)
+      Task.countDocuments(filter),
+      // NEW: Calculate global stats for badges (ignoring current dynamic filters, but respecting user visibility)
+      (async () => {
+        const statsFilter = {};
+        if (req.user.role !== "admin") {
+          statsFilter.$or = [
+            { createdBy: req.user.id },
+            { assignedTo: req.user.id }
+          ];
+        }
+
+        const todayStart = dayjs().startOf("day").toDate();
+        const todayEnd = dayjs().endOf("day").toDate();
+
+        const [active, overdue, today, upcoming, completed] = await Promise.all([
+          Task.countDocuments({ ...statsFilter, status: { $ne: "Completed" } }),
+          Task.countDocuments({ ...statsFilter, status: "Overdue" }),
+          Task.countDocuments({ ...statsFilter, dueDate: { $gte: todayStart, $lte: todayEnd } }),
+          Task.countDocuments({ ...statsFilter, dueDate: { $gt: todayEnd }, status: { $ne: "Completed" } }),
+          Task.countDocuments({ ...statsFilter, status: "Completed" })
+        ]);
+
+        return { active, overdue, today, upcoming, completed };
+      })()
     ]);
 
     res.status(200).json({
@@ -179,7 +202,8 @@ export const getTasks = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum)
-      }
+      },
+      stats // Return global stats for dashboard badges
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch tasks", error: error.message });

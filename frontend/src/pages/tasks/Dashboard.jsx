@@ -34,7 +34,7 @@ const getStatusConfig = (darkMode) => ({
 });
 
 // CHANGE #2: 5th card for total active tasks
-const getSummaryCards = (darkMode) => [
+const getSummaryCards = (darkMode, stats = {}) => [
   {
     key: "active",
     label: "Active tasks",
@@ -42,7 +42,7 @@ const getSummaryCards = (darkMode) => [
     bg: darkMode ? "rgba(139,92,246,0.15)" : "rgba(250,245,255,0.7)",
     border: darkMode ? "rgba(139,92,246,0.3)" : "rgba(196,181,253,0.4)",
     getFilter: () => ({}), // clears filters
-    getCount: (tasks) => tasks.filter(t => t.status !== "Completed").length,
+    getCount: () => stats?.active || 0,
   },
   {
     key: "overdue",
@@ -51,7 +51,7 @@ const getSummaryCards = (darkMode) => [
     bg: darkMode ? "rgba(239,68,68,0.15)" : "rgba(254,242,242,0.7)",
     border: darkMode ? "rgba(239,68,68,0.3)" : "rgba(252,165,165,0.4)",
     getFilter: () => ({ status: "Overdue" }),
-    getCount: (tasks) => tasks.filter(t => t.status === "Overdue").length,
+    getCount: () => stats?.overdue || 0,
   },
   {
     key: "today",
@@ -60,7 +60,7 @@ const getSummaryCards = (darkMode) => [
     bg: darkMode ? "rgba(245,158,11,0.15)" : "rgba(255,251,235,0.7)",
     border: darkMode ? "rgba(245,158,11,0.3)" : "rgba(253,211,77,0.4)",
     getFilter: () => ({ dueDateFrom: dayjs().format("YYYY-MM-DD"), dueDateTo: dayjs().format("YYYY-MM-DD") }),
-    getCount: (tasks) => tasks.filter(t => dayjs(t.dueDate).isSame(dayjs().startOf("day"), "day")).length,
+    getCount: () => stats?.today || 0,
   },
   {
     key: "upcoming",
@@ -69,7 +69,7 @@ const getSummaryCards = (darkMode) => [
     bg: darkMode ? "rgba(99,102,241,0.15)" : "rgba(238,242,255,0.7)",
     border: darkMode ? "rgba(99,102,241,0.3)" : "rgba(196,181,253,0.4)",
     getFilter: () => ({ dueDateFrom: dayjs().add(1, "day").format("YYYY-MM-DD") }),
-    getCount: (tasks) => tasks.filter(t => dayjs(t.dueDate).isAfter(dayjs().startOf("day")) && t.status !== "Completed").length,
+    getCount: () => stats?.upcoming || 0,
   },
   {
     key: "done",
@@ -78,7 +78,7 @@ const getSummaryCards = (darkMode) => [
     bg: darkMode ? "rgba(16,185,129,0.15)" : "rgba(236,253,245,0.7)",
     border: darkMode ? "rgba(16,185,129,0.3)" : "rgba(110,231,183,0.4)",
     getFilter: () => ({ status: "Completed" }),
-    getCount: (tasks) => tasks.filter(t => t.status === "Completed").length,
+    getCount: () => stats?.completed || 0,
   },
 ];
 
@@ -182,10 +182,10 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [editTask, setEditTask] = useState(null);
 
-  const { tasks, pagination, loading, error, refetch } = useTasks({ ...filters, page, limit: 10 });
+  const { tasks, pagination, stats, loading, error, refetch } = useTasks({ ...filters, page, limit: 10 }, 15000);
 
   const columnStyle = getColumnStyle(darkMode);
-  const summaryCards = getSummaryCards(darkMode);
+  const summaryCards = getSummaryCards(darkMode, stats);
 
   const handleToggleStatus = async (taskId, newStatus) => {
     try {
@@ -272,7 +272,7 @@ export default function Dashboard() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "28px" }}>
           {summaryCards.map((card) => {
-            const count = card.getCount(tasks);
+            const count = card.getCount();
             const isActive = JSON.stringify(filters) === JSON.stringify(card.getFilter());
             return (
               <div

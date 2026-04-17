@@ -35,7 +35,8 @@ const taskSchema = new mongoose.Schema(
 
     // CHANGE #4: category no longer enum-locked — Settings model drives valid values
     category: {
-      type: String
+      type: String,
+      required: true
     },
 
     dueDate: {

@@ -243,6 +243,11 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
       return;
     }
 
+    if (!form.category) {
+      setError("Please select a task category.");
+      return;
+    }
+
     performSubmit();
   };
 
@@ -428,23 +433,8 @@ export default function TaskFormModal({ task, onClose, onSaved }) {
           {/* ── Category ──────────────────────────────────────── */}
           {canEdit("category") && (
             <div>
-              <Label darkMode={darkMode}>Category</Label>
+              <Label required darkMode={darkMode}>Category</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                <button
-                  type="button"
-                  onClick={() => handle("category", "")}
-                  style={{
-                    padding: "5px 12px", borderRadius: "99px", fontSize: "12px",
-                    border: !form.category 
-                      ? (darkMode ? "1.5px solid rgba(167, 139, 250, 0.5)" : "1.5px solid rgba(124, 58, 237, 0.5)") 
-                      : (darkMode ? "1.5px solid rgba(255,255,255,0.08)" : "1.5px solid #e5e7eb"),
-                    background: !form.category ? "rgba(139,92,246,0.15)" : "transparent",
-                    color: !form.category ? "var(--accent-purple)" : "var(--text-muted)",
-                    cursor: "pointer", fontWeight: !form.category ? 600 : 400, transition: "all 0.15s",
-                  }}
-                >
-                  None
-                </button>
                 {settings.categories.map(cat => {
                   const isActive = form.category === cat;
                   return (

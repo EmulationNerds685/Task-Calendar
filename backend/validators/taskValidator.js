@@ -19,7 +19,7 @@ export const createTaskSchema = z.object({
   description: z.string().max(500).optional(),
   assignedTo: assignedToField,
   priority: z.enum(["High", "Medium", "Low"]).default("Medium"),
-  category: z.string().optional(),
+  category: z.string().min(1, "Category is required"),
   dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format"
   }),
