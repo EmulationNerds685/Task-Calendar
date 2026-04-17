@@ -178,14 +178,18 @@ export default function CalendarPage() {
 
     try {
       await api.patch(`/calendar/${event.id}`, {
-        date: dayjs(start).toISOString(), startTime, endTime,
+        date: dayjs(start).toISOString(), 
+        endDate: computedEndDate,
+        startTime, 
+        endTime,
       });
       await refetch();
+      await refetchTasks(); // Sync sidebar
     } catch (err) {
       setDragError(err.response?.data?.message || "Failed to reschedule. Please try again.");
       await refetch();
     }
-  }, [refetch]);
+  }, [refetch, refetchTasks]);
 
   const handleEventResize = useCallback(async ({ event, start, end }) => {
     setDragError("");
@@ -197,16 +201,22 @@ export default function CalendarPage() {
     const startTime = dayjs(start).format("HH:mm");
     const endTime   = dayjs(end).format("HH:mm");
     const endDay    = dayjs(end).startOf("day").toISOString();
+    const computedEndDate = dayjs(end).subtract(1, "ms").startOf("day").toISOString();
+    
     try {
       await api.patch(`/calendar/${event.id}`, {
-        date: dayjs(start).toISOString(), startTime, endTime,
+        date: dayjs(start).toISOString(), 
+        endDate: computedEndDate,
+        startTime, 
+        endTime,
       });
       await refetch();
+      await refetchTasks(); // Sync sidebar
     } catch (err) {
       setDragError(err.response?.data?.message || "Failed to resize event.");
       await refetch();
     }
-  }, [refetch]);
+  }, [refetch, refetchTasks]);
 
   // Only allow drag/resize if the user can edit the task
   const isDraggable = useCallback((event) => {

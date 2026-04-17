@@ -22,6 +22,7 @@ router.patch("/:eventId", verifyToken, async (req, res) => {
 
     const updateFields = {
       date:      req.body.date,
+      endDate:   req.body.endDate, // Added multi-day support
       startTime: req.body.startTime,
       endTime:   req.body.endTime,
     };
@@ -32,8 +33,16 @@ router.patch("/:eventId", verifyToken, async (req, res) => {
       updateFields
     );
 
-    // Keep task dates in sync 
-    await Task.findByIdAndUpdate(event.task._id, { scheduledDate: req.body.date, startDate: req.body.date });
+    // Keep task dates in sync. Update dueDate if endDate is provided.
+    const taskUpdate = { 
+      scheduledDate: req.body.date, 
+      startDate: req.body.date 
+    };
+    if (req.body.endDate) {
+      taskUpdate.dueDate = req.body.endDate;
+    }
+    
+    await Task.findByIdAndUpdate(event.task._id, taskUpdate);
 
     const updatedEvent = await CalendarEvent.findById(req.params.eventId);
     res.json(updatedEvent);
