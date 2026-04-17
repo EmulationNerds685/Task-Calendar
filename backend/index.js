@@ -9,7 +9,6 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js"; // CHANGE #4
 import notificationRoutes from "./routes/notificationRoutes.js";
 import startCronJobs from "./utils/cronJobs.js";
-import { globalLimiter } from "./middleware/rateLimitMiddleware.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -28,7 +27,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-app.use("/api", globalLimiter);
 
 app.use("/api/auth",          authRoutes);
 app.use("/api/tasks",         taskRoutes);
